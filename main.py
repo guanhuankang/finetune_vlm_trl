@@ -1,5 +1,10 @@
 from trl import SFTConfig
 import wandb
+from datasets import load_dataset
+
+
+dataset_id = "HuggingFaceM4/ChartQA"
+train_dataset, eval_dataset, test_dataset = load_dataset(dataset_id, split=["train[:10%]", "val[:10%]", "test[:10%]"])
 
 # Configure training arguments
 training_args = SFTConfig(
