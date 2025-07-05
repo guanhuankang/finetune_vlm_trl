@@ -1,52 +1,175 @@
-from trl import SFTConfig
+import torch
+from trl import SFTConfig, SFTTrainer
+from transformers import Qwen2VLForConditionalGeneration, Qwen2VLProcessor
+from transformers import BitsAndBytesConfig
 import wandb
-from datasets import load_dataset
+from peft import LoraConfig, get_peft_model
+from qwen_vl_utils import process_vision_info
+from functools import partial
 
+from dataset import load_chartqa_dataset
+from utils import clear_memory, GPU_monitor
 
-dataset_id = "HuggingFaceM4/ChartQA"
-train_dataset, eval_dataset, test_dataset = load_dataset(dataset_id, split=["train[:10%]", "val[:10%]", "test[:10%]"])
+def collate_fn(examples, processor):
+    texts = [
+        processor.apply_chat_template(example, tokenize=False) for example in examples
+    ]
+    image_inputs = [process_vision_info(example)[0] for example in examples]
 
-# Configure training arguments
-training_args = SFTConfig(
-    output_dir="qwen2-7b-instruct-trl-sft-ChartQA",  # Directory to save the model
-    num_train_epochs=3,  # Number of training epochs
-    per_device_train_batch_size=4,  # Batch size for training
-    per_device_eval_batch_size=4,  # Batch size for evaluation
-    gradient_accumulation_steps=8,  # Steps to accumulate gradients
-    gradient_checkpointing=True,  # Enable gradient checkpointing for memory efficiency
-    # Optimizer and scheduler settings
-    optim="adamw_torch_fused",  # Optimizer type
-    learning_rate=2e-4,  # Learning rate for training
-    lr_scheduler_type="constant",  # Type of learning rate scheduler
-    # Logging and evaluation
-    logging_steps=10,  # Steps interval for logging
-    eval_steps=10,  # Steps interval for evaluation
-    eval_strategy="steps",  # Strategy for evaluation
-    save_strategy="steps",  # Strategy for saving the model
-    save_steps=20,  # Steps interval for saving
-    metric_for_best_model="eval_loss",  # Metric to evaluate the best model
-    greater_is_better=False,  # Whether higher metric values are better
-    load_best_model_at_end=True,  # Load the best model after training
-    # Mixed precision and gradient settings
-    bf16=True,  # Use bfloat16 precision
-    tf32=True,  # Use TensorFloat-32 precision
-    max_grad_norm=0.3,  # Maximum norm for gradient clipping
-    warmup_ratio=0.03,  # Ratio of total steps for warmup
-    # Hub and reporting
-    push_to_hub=False,  # Whether to push model to Hugging Face Hub
-    report_to="wandb",  # Reporting tool for tracking metrics
-    # Gradient checkpointing settings
-    gradient_checkpointing_kwargs={"use_reentrant": False},  # Options for gradient checkpointing
-    # Dataset configuration
-    dataset_text_field="",  # Text field in dataset
-    dataset_kwargs={"skip_prepare_dataset": True},  # Additional dataset options
-    # max_seq_length=1024  # Maximum sequence length for input
-)
+    batch = processor(
+        text=texts, images=image_inputs, return_tensors="pt", padding=True
+    )
+    
+    labels = batch["input_ids"].clone()  # Clone input IDs for labels
+    labels[labels == processor.tokenizer.pad_token_id] = -100  # Mask padding tokens in labels
 
-training_args.remove_unused_columns = False  # Keep unused columns in dataset
+    # Ignore the image token index in the loss computation (model specific)
+    if isinstance(processor, Qwen2VLProcessor):  # Check if the processor is Qwen2VLProcessor
+        image_tokens = [151652, 151653, 151655]  # Specific image token IDs for Qwen2VLProcessor
+    else:
+        image_tokens = [processor.tokenizer.convert_tokens_to_ids(processor.image_token)]  # Convert image token to ID
 
-wandb.init(
-    project="qwen2-7b-instruct-trl-sft-ChartQA",  # change this
-    name="qwen2-7b-instruct-trl-sft-ChartQA",  # change this
-    config=training_args,
-)
+    # Mask image token IDs in the labels
+    for image_token_id in image_tokens:
+        labels[labels == image_token_id] = -100  # Mask image token IDs in labels
+
+    batch["labels"] = labels  # Add labels to the batch
+
+    return batch  # Return the prepared batch
+
+def generate_text_from_sample(model, processor, sample, max_new_tokens=1024, device="cuda"):
+    text_input = processor.apply_chat_template(
+        sample[:2], tokenize=False, add_generation_prompt=True  # Use the sample without the system message
+    )
+    image_inputs, _ = process_vision_info(sample)
+
+    model_inputs = processor(
+        text=[text_input],
+        images=image_inputs,
+        return_tensors="pt",
+    ).to(
+        device
+    )
+
+    generated_ids = model.generate(**model_inputs, max_new_tokens=max_new_tokens)
+    trimmed_generated_ids = [out_ids[len(in_ids) :] for in_ids, out_ids in zip(model_inputs.input_ids, generated_ids)]
+    output_text = processor.batch_decode(
+        trimmed_generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False
+    )
+
+    return output_text[0]
+
+def train():
+    # Configure training arguments
+    training_args = SFTConfig(
+        output_dir="qwen2-7b-instruct-trl-sft-ChartQA",  # Directory to save the model
+        num_train_epochs=3,  # Number of training epochs
+        per_device_train_batch_size=4,  # Batch size for training
+        per_device_eval_batch_size=4,  # Batch size for evaluation
+        gradient_accumulation_steps=2,  # Steps to accumulate gradients
+        gradient_checkpointing=True,  # Enable gradient checkpointing for memory efficiency
+        # Optimizer and scheduler settings
+        optim="adamw_torch_fused",  # Optimizer type
+        learning_rate=2e-4,  # Learning rate for training
+        lr_scheduler_type="constant",  # Type of learning rate scheduler
+        # Logging and evaluation
+        logging_steps=2,  # Steps interval for logging
+        eval_steps=10,  # Steps interval for evaluation
+        eval_strategy="steps",  # Strategy for evaluation
+        save_strategy="steps",  # Strategy for saving the model
+        save_steps=20,  # Steps interval for saving
+        metric_for_best_model="eval_loss",  # Metric to evaluate the best model
+        greater_is_better=False,  # Whether higher metric values are better
+        load_best_model_at_end=True,  # Load the best model after training
+        # Mixed precision and gradient settings
+        bf16=True,  # Use bfloat16 precision
+        tf32=True,  # Use TensorFloat-32 precision
+        max_grad_norm=0.3,  # Maximum norm for gradient clipping
+        warmup_ratio=0.03,  # Ratio of total steps for warmup
+        # Hub and reporting
+        push_to_hub=False,  # Whether to push model to Hugging Face Hub
+        report_to="wandb",  # Reporting tool for tracking metrics
+        # Gradient checkpointing settings
+        gradient_checkpointing_kwargs={"use_reentrant": False},  # Options for gradient checkpointing
+        # Dataset configuration
+        dataset_text_field="",  # Text field in dataset
+        dataset_kwargs={"skip_prepare_dataset": True},  # Additional dataset options
+        # max_seq_length=1024  # Maximum sequence length for input
+    )
+
+    training_args.remove_unused_columns = False  # Keep unused columns in dataset
+
+    wandb.init(
+        project="qwen2-7b-instruct-trl-sft-ChartQA",  # change this
+        name="qwen2-7b-instruct-trl-sft-ChartQA",  # change this
+        config=training_args,
+    )
+
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_use_double_quant=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.bfloat16,
+    )
+    
+    model_id = "Qwen/Qwen2-VL-7B-Instruct"
+    
+    model = Qwen2VLForConditionalGeneration.from_pretrained(
+        model_id,
+        device_map="auto",
+        torch_dtype=torch.bfloat16,
+        quantization_config=bnb_config,
+    )
+    processor = Qwen2VLProcessor.from_pretrained(model_id)
+    
+    peft_config = LoraConfig(
+        lora_alpha=16,
+        lora_dropout=0.05,
+        r=8,
+        bias="none",
+        target_modules=["q_proj", "v_proj"],
+        task_type="CAUSAL_LM",
+    )
+    
+    train_dataset, eval_dataset, test_dataset = load_chartqa_dataset()
+     
+    trainer = SFTTrainer(
+        model=model,
+        args=training_args,
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
+        data_collator=partial(collate_fn, processor=processor),
+        peft_config=peft_config,
+        processing_class=processor.tokenizer,
+    )
+    trainer.train()
+    trainer.save_model(training_args.output_dir)
+
+def test():
+    clear_memory()
+    
+    model_id = "Qwen/Qwen2-VL-7B-Instruct"
+    
+    model = Qwen2VLForConditionalGeneration.from_pretrained(
+        model_id,
+        device_map="auto",
+        torch_dtype=torch.bfloat16,
+    )
+
+    adapter_path = "qwen2-7b-instruct-trl-sft-ChartQA/checkpoint-40"
+    model.load_adapter(adapter_path)
+    
+    processor = Qwen2VLProcessor.from_pretrained(model_id)
+    
+    train_dataset, eval_dataset, test_dataset = load_chartqa_dataset()
+    
+    inputs = train_dataset[0]
+    outputs = generate_text_from_sample(model, processor, inputs)
+    print("inputs", inputs[:2])
+    print("outputs:", outputs)
+    print("labels:", inputs[2::])
+    GPU_monitor()
+
+if __name__=="__main__":
+    # train()
+    test()

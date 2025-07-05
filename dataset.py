@@ -1,30 +1,49 @@
-# Create a data collator to encode text and image pairs
-def collate_fn(examples):
-    # Get the texts and images, and apply the chat template
-    texts = [
-        processor.apply_chat_template(example, tokenize=False) for example in examples
-    ]  # Prepare texts for processing
-    image_inputs = [process_vision_info(example)[0] for example in examples]  # Process the images to extract inputs
+from datasets import load_dataset
 
-    # Tokenize the texts and process the images
-    batch = processor(
-        text=texts, images=image_inputs, return_tensors="pt", padding=True
-    )  # Encode texts and images into tensors
+def format_data(sample):
+    system_message = """You are a Vision Language Model specialized in interpreting visual data from chart images. Your task is to analyze the provided chart image and respond to queries with concise answers, usually a single word, number, or short phrase. The charts include a variety of types (e.g., line charts, bar charts) and contain colors, labels, and text. Focus on delivering accurate, succinct answers based on the visual information. Avoid additional explanation unless absolutely necessary."""
 
-    # The labels are the input_ids, and we mask the padding tokens in the loss computation
-    labels = batch["input_ids"].clone()  # Clone input IDs for labels
-    labels[labels == processor.tokenizer.pad_token_id] = -100  # Mask padding tokens in labels
+    return [
+        {
+            "role": "system",
+            "content": [{"type": "text", "text": system_message}],
+        },
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "image",
+                    "image": sample["image"],
+                },
+                {
+                    "type": "text",
+                    "text": sample["query"],
+                },
+            ],
+        },
+        {
+            "role": "assistant",
+            "content": [{"type": "text", "text": sample["label"][0]}],
+        },
+    ]
 
-    # Ignore the image token index in the loss computation (model specific)
-    if isinstance(processor, Qwen2VLProcessor):  # Check if the processor is Qwen2VLProcessor
-        image_tokens = [151652, 151653, 151655]  # Specific image token IDs for Qwen2VLProcessor
-    else:
-        image_tokens = [processor.tokenizer.convert_tokens_to_ids(processor.image_token)]  # Convert image token to ID
+def load_chartqa_dataset():
+    dataset_id = "HuggingFaceM4/ChartQA"
+    train_dataset, eval_dataset, test_dataset = load_dataset(dataset_id, split=["train[:10%]", "val[:10%]", "test[:10%]"])
+    
+    train_dataset = [format_data(sample) for sample in train_dataset]
+    eval_dataset = [format_data(sample) for sample in eval_dataset]
+    test_dataset = [format_data(sample) for sample in test_dataset]
 
-    # Mask image token IDs in the labels
-    for image_token_id in image_tokens:
-        labels[labels == image_token_id] = -100  # Mask image token IDs in labels
+    return train_dataset, eval_dataset, test_dataset
 
-    batch["labels"] = labels  # Add labels to the batch
-
-    return batch  # Return the prepared batch
+if __name__ == "__main__":
+    train_dataset, eval_dataset, test_dataset = load_chartqa_dataset()
+    
+    print(f"Train dataset size: {len(train_dataset)}")
+    print(f"Eval dataset size: {len(eval_dataset)}")
+    print(f"Test dataset size: {len(test_dataset)}")
+    
+    # Example of accessing a sample
+    print("Example train sample:", train_dataset[0])  # Print the first training sample
+    # print("Example eval sample:", eval_dataset[0])    # Print the first evaluation sample
