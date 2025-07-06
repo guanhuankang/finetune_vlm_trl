@@ -64,20 +64,20 @@ def train():
     training_args = SFTConfig(
         output_dir="qwen2-7b-instruct-trl-sft-ChartQA",  # Directory to save the model
         num_train_epochs=3,  # Number of training epochs
-        per_device_train_batch_size=4,  # Batch size for training
+        per_device_train_batch_size=1,  # Batch size for training
         per_device_eval_batch_size=4,  # Batch size for evaluation
-        gradient_accumulation_steps=2,  # Steps to accumulate gradients
+        gradient_accumulation_steps=4,  # Steps to accumulate gradients
         gradient_checkpointing=True,  # Enable gradient checkpointing for memory efficiency
         # Optimizer and scheduler settings
         optim="adamw_torch_fused",  # Optimizer type
         learning_rate=2e-4,  # Learning rate for training
         lr_scheduler_type="constant",  # Type of learning rate scheduler
         # Logging and evaluation
-        logging_steps=2,  # Steps interval for logging
-        eval_steps=10,  # Steps interval for evaluation
+        logging_steps=4,  # Steps interval for logging
+        eval_steps=1000,  # Steps interval for evaluation
         eval_strategy="steps",  # Strategy for evaluation
         save_strategy="steps",  # Strategy for saving the model
-        save_steps=20,  # Steps interval for saving
+        save_steps=1000,  # Steps interval for saving
         metric_for_best_model="eval_loss",  # Metric to evaluate the best model
         greater_is_better=False,  # Whether higher metric values are better
         load_best_model_at_end=True,  # Load the best model after training
@@ -118,7 +118,7 @@ def train():
         model_id,
         device_map="auto",
         torch_dtype=torch.bfloat16,
-        quantization_config=bnb_config,
+        # quantization_config=bnb_config,
     )
     processor = Qwen2VLProcessor.from_pretrained(model_id)
     
@@ -163,7 +163,7 @@ def test():
     
     train_dataset, eval_dataset, test_dataset = load_chartqa_dataset()
     
-    inputs = train_dataset[0]
+    inputs = train_dataset[10]
     outputs = generate_text_from_sample(model, processor, inputs)
     print("inputs", inputs[:2])
     print("outputs:", outputs)
@@ -171,5 +171,5 @@ def test():
     GPU_monitor()
 
 if __name__=="__main__":
-    # train()
+    train()
     test()
