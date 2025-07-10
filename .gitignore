@@ -9,3 +9,5 @@ wandb/
 assets/
 trash/
 qwen2-7b-instruct-trl-sft-ChartQA/
+
+archive/
