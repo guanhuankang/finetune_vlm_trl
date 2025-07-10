@@ -7,35 +7,9 @@ from peft import LoraConfig, get_peft_model
 from qwen_vl_utils import process_vision_info
 from functools import partial
 
-from dataset import load_chartqa_dataset
+from dataset import load_psor_dataset
 from utils import clear_memory, GPU_monitor
-
-def collate_fn(examples, processor):
-    texts = [
-        processor.apply_chat_template(example, tokenize=False) for example in examples
-    ]
-    image_inputs = [process_vision_info(example)[0] for example in examples]
-
-    batch = processor(
-        text=texts, images=image_inputs, return_tensors="pt", padding=True
-    )
-    
-    labels = batch["input_ids"].clone()  # Clone input IDs for labels
-    labels[labels == processor.tokenizer.pad_token_id] = -100  # Mask padding tokens in labels
-
-    # Ignore the image token index in the loss computation (model specific)
-    if isinstance(processor, Qwen2VLProcessor):  # Check if the processor is Qwen2VLProcessor
-        image_tokens = [151652, 151653, 151655]  # Specific image token IDs for Qwen2VLProcessor
-    else:
-        image_tokens = [processor.tokenizer.convert_tokens_to_ids(processor.image_token)]  # Convert image token to ID
-
-    # Mask image token IDs in the labels
-    for image_token_id in image_tokens:
-        labels[labels == image_token_id] = -100  # Mask image token IDs in labels
-
-    batch["labels"] = labels  # Add labels to the batch
-
-    return batch  # Return the prepared batch
+from collate import collate_fn
 
 def generate_text_from_sample(model, processor, sample, max_new_tokens=1024, device="cuda"):
     text_input = processor.apply_chat_template(
@@ -59,21 +33,43 @@ def generate_text_from_sample(model, processor, sample, max_new_tokens=1024, dev
 
     return output_text[0]
 
+def get_model():
+    model_id = "Qwen/Qwen2-VL-7B-Instruct"
+    
+    # bnb_config = BitsAndBytesConfig(
+    #     load_in_4bit=True,
+    #     bnb_4bit_use_double_quant=True,
+    #     bnb_4bit_quant_type="nf4",
+    #     bnb_4bit_compute_dtype=torch.bfloat16,
+    # )
+    
+    model = Qwen2VLForConditionalGeneration.from_pretrained(
+        model_id,
+        device_map="auto",
+        torch_dtype=torch.bfloat16,
+        # quantization_config=bnb_config,
+    )
+    
+    processor = Qwen2VLProcessor.from_pretrained(model_id)
+    
+    return model, processor
+
+
 def train():
     # Configure training arguments
     training_args = SFTConfig(
-        output_dir="qwen2-7b-instruct-trl-sft-ChartQA",  # Directory to save the model
+        output_dir="qwen2-7b-instruct-trl-sft-PSOR",  # Directory to save the model
         num_train_epochs=3,  # Number of training epochs
-        per_device_train_batch_size=1,  # Batch size for training
-        per_device_eval_batch_size=4,  # Batch size for evaluation
+        per_device_train_batch_size=2,  # Batch size for training
+        per_device_eval_batch_size=1,  # Batch size for evaluation
         gradient_accumulation_steps=4,  # Steps to accumulate gradients
         gradient_checkpointing=True,  # Enable gradient checkpointing for memory efficiency
         # Optimizer and scheduler settings
         optim="adamw_torch_fused",  # Optimizer type
-        learning_rate=2e-4,  # Learning rate for training
+        learning_rate=1e-4,  # Learning rate for training
         lr_scheduler_type="constant",  # Type of learning rate scheduler
         # Logging and evaluation
-        logging_steps=4,  # Steps interval for logging
+        logging_steps=10,  # Steps interval for logging
         eval_steps=1000,  # Steps interval for evaluation
         eval_strategy="steps",  # Strategy for evaluation
         save_strategy="steps",  # Strategy for saving the model
@@ -100,27 +96,14 @@ def train():
     training_args.remove_unused_columns = False  # Keep unused columns in dataset
 
     wandb.init(
-        project="qwen2-7b-instruct-trl-sft-ChartQA",  # change this
-        name="qwen2-7b-instruct-trl-sft-ChartQA",  # change this
+        project="PSOR",
+        name="qwen2-7b-instruct-trl-sft-PSOR",
         config=training_args,
     )
-
-    bnb_config = BitsAndBytesConfig(
-        load_in_4bit=True,
-        bnb_4bit_use_double_quant=True,
-        bnb_4bit_quant_type="nf4",
-        bnb_4bit_compute_dtype=torch.bfloat16,
-    )
     
-    model_id = "Qwen/Qwen2-VL-7B-Instruct"
+    train_dataset, eval_dataset, test_dataset = load_psor_dataset()
     
-    model = Qwen2VLForConditionalGeneration.from_pretrained(
-        model_id,
-        device_map="auto",
-        torch_dtype=torch.bfloat16,
-        # quantization_config=bnb_config,
-    )
-    processor = Qwen2VLProcessor.from_pretrained(model_id)
+    model, processor = get_model()
     
     peft_config = LoraConfig(
         lora_alpha=16,
@@ -131,8 +114,6 @@ def train():
         task_type="CAUSAL_LM",
     )
     
-    train_dataset, eval_dataset, test_dataset = load_chartqa_dataset()
-     
     trainer = SFTTrainer(
         model=model,
         args=training_args,
@@ -148,22 +129,14 @@ def train():
 def test():
     clear_memory()
     
-    model_id = "Qwen/Qwen2-VL-7B-Instruct"
-    
-    model = Qwen2VLForConditionalGeneration.from_pretrained(
-        model_id,
-        device_map="auto",
-        torch_dtype=torch.bfloat16,
-    )
+    model, processor = get_model()
 
     adapter_path = "qwen2-7b-instruct-trl-sft-ChartQA/checkpoint-40"
     model.load_adapter(adapter_path)
     
-    processor = Qwen2VLProcessor.from_pretrained(model_id)
+    _, eval_dataset, _ = load_psor_dataset()
     
-    train_dataset, eval_dataset, test_dataset = load_chartqa_dataset()
-    
-    inputs = train_dataset[10]
+    inputs = eval_dataset[0]
     outputs = generate_text_from_sample(model, processor, inputs)
     print("inputs", inputs[:2])
     print("outputs:", outputs)

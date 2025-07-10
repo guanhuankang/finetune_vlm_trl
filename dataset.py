@@ -37,10 +37,10 @@ def format_data(sample):
     ]
 
 
-class CustomDataset(Dataset):
-    def __init__(self, dataset_json, image_folder_path, categories_path, split, input_resolution=(1024, 1024)):
-        with open(dataset_json, "r") as f:
-            dataset_json = json.load(f)
+class PSORDataset(Dataset):
+    def __init__(self, dataset_path, image_folder_path, categories_path, split, input_resolution=(1024, 1024)):
+        with open(dataset_path, "r") as f:
+            dataset = json.load(f)
 
         with open(categories_path, "r") as f:
             categories = json.load(f)
@@ -48,16 +48,16 @@ class CustomDataset(Dataset):
 
         # Splitting
         if split == "val" or split == "test":
-            dataset = dataset_json[0:5]
+            dataset = dataset[0:5]
         elif split == "train":
-            dataset = dataset_json[5::]
+            dataset = dataset[5::]
         else:
-            dataset = dataset_json
+            dataset = dataset
 
-        self.dataset = [self.preprocess_psor_sample(x) for x in dataset]
         self.categories = categories
         self.image_folder_path = image_folder_path
         self.input_resolution = input_resolution
+        self.dataset = [self.preprocess_psor_sample(x) for x in dataset]
 
     def __getitem__(self, index):
         sample = self.dataset[index]
@@ -128,17 +128,21 @@ class CustomDataset(Dataset):
 
 def load_psor_dataset():
     dataset_path = "minidataset/psor_examples.json"
+    categories_path = "minidataset/categories.json"
     image_folder_path = "minidataset/examples"
 
-    train_dataset = dataset[]
-    eval_dataset
-    test_dataset
+    train_dataset = PSORDataset(dataset_path=dataset_path, image_folder_path=image_folder_path,
+                                categories_path=categories_path, split="train")
+    eval_dataset = PSORDataset(dataset_path=dataset_path, image_folder_path=image_folder_path,
+                                categories_path=categories_path, split="val")
+    test_dataset = PSORDataset(dataset_path=dataset_path, image_folder_path=image_folder_path,
+                                categories_path=categories_path, split="test")
 
     return train_dataset, eval_dataset, test_dataset
 
 
 if __name__ == "__main__":
-    train_dataset, eval_dataset, test_dataset = load_chartqa_dataset()
+    train_dataset, eval_dataset, test_dataset = load_psor_dataset()
 
     print(f"Train dataset size: {len(train_dataset)}")
     print(f"Eval dataset size: {len(eval_dataset)}")
