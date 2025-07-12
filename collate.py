@@ -15,6 +15,15 @@ def collate_fn(examples, processor):
     labels = batch["input_ids"].clone()  # Clone input IDs for labels
     labels[labels == processor.tokenizer.pad_token_id] = -100  # Mask padding tokens in labels
 
+    # import pickle, time
+    # with open("debug/"+str(time.ctime()), "wb") as f:
+    #     pickle.dump({
+    #         "texts": texts,
+    #         "image_inputs": image_inputs,
+    #         "batch": batch,
+    #         "labels": labels
+    #     }, f)
+    
     # Ignore the image token index in the loss computation (model specific)
     if isinstance(processor, Qwen2VLProcessor):  # Check if the processor is Qwen2VLProcessor
         image_tokens = [151652, 151653, 151655]  # Specific image token IDs for Qwen2VLProcessor

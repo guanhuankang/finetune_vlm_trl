@@ -59,7 +59,7 @@ def train():
     # Configure training arguments
     training_args = SFTConfig(
         output_dir="qwen2-7b-instruct-trl-sft-PSOR",  # Directory to save the model
-        num_train_epochs=3,  # Number of training epochs
+        num_train_epochs=10,  # Number of training epochs
         per_device_train_batch_size=2,  # Batch size for training
         per_device_eval_batch_size=1,  # Batch size for evaluation
         gradient_accumulation_steps=4,  # Steps to accumulate gradients
@@ -69,11 +69,11 @@ def train():
         learning_rate=1e-4,  # Learning rate for training
         lr_scheduler_type="constant",  # Type of learning rate scheduler
         # Logging and evaluation
-        logging_steps=10,  # Steps interval for logging
+        logging_steps=8,  # Steps interval for logging
         eval_steps=1000,  # Steps interval for evaluation
         eval_strategy="steps",  # Strategy for evaluation
         save_strategy="steps",  # Strategy for saving the model
-        save_steps=1000,  # Steps interval for saving
+        save_steps=5000,  # Steps interval for saving
         metric_for_best_model="eval_loss",  # Metric to evaluate the best model
         greater_is_better=False,  # Whether higher metric values are better
         load_best_model_at_end=True,  # Load the best model after training
@@ -131,7 +131,7 @@ def test():
     
     model, processor = get_model()
 
-    adapter_path = "qwen2-7b-instruct-trl-sft-ChartQA/checkpoint-40"
+    adapter_path = "qwen2-7b-instruct-trl-sft-PSOR"
     model.load_adapter(adapter_path)
     
     _, eval_dataset, _ = load_psor_dataset()
