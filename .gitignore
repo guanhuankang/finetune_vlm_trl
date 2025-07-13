@@ -10,6 +10,7 @@ assets/
 trash/
 qwen2-7b-instruct-trl-sft-ChartQA/
 qwen2-7b-instruct-trl-sft-PSOR/
+Qwen/
 
 archive/
 debug/
