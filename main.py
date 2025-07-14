@@ -34,8 +34,8 @@ def generate_text_from_sample(model, processor, sample, max_new_tokens=1024, dev
 
     return output_text[0]
 
-def get_model():
-    model_id = "assets/Qwen/Qwen2-VL-7B-Instruct"
+def get_model(cfg):
+    model_id = cfg.model_id
     
     # bnb_config = BitsAndBytesConfig(
     #     load_in_4bit=True,
@@ -56,25 +56,25 @@ def get_model():
     return model, processor
 
 
-def train():
+def train(cfg):
     # Configure training arguments
     training_args = SFTConfig(
-        output_dir="qwen2-7b-instruct-trl-sft-PSOR",  # Directory to save the model
-        num_train_epochs=10,  # Number of training epochs
-        per_device_train_batch_size=1,  # Batch size for training
+        output_dir=cfg.output_dir,  # Directory to save the model
+        num_train_epochs=cfg.num_train_epochs,  # Number of training epochs
+        per_device_train_batch_size=cfg.per_device_train_batch_size,  # Batch size for training
         per_device_eval_batch_size=1,  # Batch size for evaluation
-        gradient_accumulation_steps=1,  # Steps to accumulate gradients
+        gradient_accumulation_steps=cfg.gradient_accumulation_steps,  # Steps to accumulate gradients
         gradient_checkpointing=True,  # Enable gradient checkpointing for memory efficiency
         # Optimizer and scheduler settings
         optim="adamw_torch_fused",  # Optimizer type
-        learning_rate=1e-4,  # Learning rate for training
+        learning_rate=cfg.learning_rate,  # Learning rate for training
         lr_scheduler_type="constant",  # Type of learning rate scheduler
         # Logging and evaluation
-        logging_steps=50,  # Steps interval for logging
-        eval_steps=1000,  # Steps interval for evaluation
+        logging_steps=cfg.logging_steps,  # Steps interval for logging
+        eval_steps=cfg.eval_steps,  # Steps interval for evaluation
         eval_strategy="steps",  # Strategy for evaluation
         save_strategy="steps",  # Strategy for saving the model
-        save_steps=5000,  # Steps interval for saving
+        save_steps=cfg.save_steps,  # Steps interval for saving
         metric_for_best_model="eval_loss",  # Metric to evaluate the best model
         greater_is_better=False,  # Whether higher metric values are better
         load_best_model_at_end=True,  # Load the best model after training
@@ -96,17 +96,17 @@ def train():
 
     training_args.remove_unused_columns = False  # Keep unused columns in dataset
 
-    os.environ["WANDB_MODE"] = "offline"    
+    os.environ["WANDB_MODE"] = cfg.wandb_mode  
     wandb.init(
-        project="PSOR",
-        name="qwen2-7b-instruct-trl-sft-PSOR",
+        project=cfg.project,
+        name=cfg.run_name,
         config=training_args,
-        mode="offline"
+        mode=cfg.wandb_mode
     )
     
-    train_dataset, eval_dataset, test_dataset = load_psor_dataset()
+    train_dataset, eval_dataset, test_dataset = load_psor_dataset(cfg=cfg)
     
-    model, processor = get_model()
+    model, processor = get_model(cfg=cfg)
     
     peft_config = LoraConfig(
         lora_alpha=16,
@@ -129,12 +129,12 @@ def train():
     trainer.train()
     trainer.save_model(training_args.output_dir)
 
-def test():
+def test(cfg):
     clear_memory()
     
-    model, processor = get_model()
+    model, processor = get_model(cfg=cfg)
 
-    adapter_path = "qwen2-7b-instruct-trl-sft-PSOR"
+    adapter_path = cfg.output_dir
     model.load_adapter(adapter_path)
     
     _, eval_dataset, _ = load_psor_dataset()
@@ -147,5 +147,8 @@ def test():
     GPU_monitor()
 
 if __name__=="__main__":
-    train()
-    test()
+    from config import get_config
+    cfg = get_config()
+
+    train(cfg=cfg)
+    test(cfg=cfg)

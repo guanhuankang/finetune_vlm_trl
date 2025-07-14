@@ -1,16 +1,11 @@
 __pycache__
 *.pyc
-
 .ipynb_checkpoints/
-wandb/
 
 .venv/
 
 assets/
 trash/
-qwen2-7b-instruct-trl-sft-ChartQA/
-qwen2-7b-instruct-trl-sft-PSOR/
-Qwen/
-
-archive/
+wandb/
+output/
 debug/

@@ -136,23 +136,29 @@ class PSORDataset(Dataset):
         return sample
 
 
-def load_psor_dataset():
-    dataset_path = "assets/dataset/psor.json"
-    categories_path = "assets/dataset/categories.json"
-    image_folder_path = "assets/dataset/images"
+def load_psor_dataset(cfg):
+    dataset_path = cfg.dataset_path
+    categories_path = cfg.categories_path
+    image_folder_path = cfg.image_folder_path
+    split_indexs = cfg.val_test_train_split
 
-    train_dataset = PSORDataset(dataset_path=dataset_path, image_folder_path=image_folder_path,
-                                categories_path=categories_path, split_start=5000, split_length=10000)
+    si = tuple(map(int, split_indexs.replace(";", ",").split(",")))
+
     eval_dataset = PSORDataset(dataset_path=dataset_path, image_folder_path=image_folder_path,
-                               categories_path=categories_path, split_start=0, split_length=200)
+                               categories_path=categories_path, split_start=si[0], split_length=si[1])
     test_dataset = PSORDataset(dataset_path=dataset_path, image_folder_path=image_folder_path,
-                               categories_path=categories_path, split_start=0, split_length=5000)
+                               categories_path=categories_path, split_start=si[2], split_length=si[3])
+    train_dataset = PSORDataset(dataset_path=dataset_path, image_folder_path=image_folder_path,
+                                categories_path=categories_path, split_start=si[4], split_length=si[5])
 
     return train_dataset, eval_dataset, test_dataset
 
 
 if __name__ == "__main__":
-    train_dataset, eval_dataset, test_dataset = load_psor_dataset()
+    from config import get_config
+    cfg = get_config()
+
+    train_dataset, eval_dataset, test_dataset = load_psor_dataset(cfg=cfg)
 
     print(f"Train dataset size: {len(train_dataset)}")
     print(f"Eval dataset size: {len(eval_dataset)}")
