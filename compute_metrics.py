@@ -3,6 +3,12 @@ import numpy as np
 
 def compute_metrics(eval_pred: EvalPrediction, processor):
     print()
+
+
+    import pickle, time
+    with open("output/batch_"+str(time.ctime()), "wb") as f:
+        pickle.dump(eval_pred, f)
+        
     predictions, labels = eval_pred
     
     if isinstance(predictions, tuple):
@@ -20,10 +26,6 @@ def compute_metrics(eval_pred: EvalPrediction, processor):
         labels = labels[invalid_mask]
         print(invalid_mask.sum())
 
-
-        import pickle, time
-        with open("output/batch_"+str(time.ctime()), "wb") as f:
-            pickle.dump(eval_pred, f)
 
         if np.any(invalid_mask):
             invalid_ids = labels[invalid_mask]
