@@ -144,7 +144,7 @@ def load_psor_dataset():
     train_dataset = PSORDataset(dataset_path=dataset_path, image_folder_path=image_folder_path,
                                 categories_path=categories_path, split_start=5000, split_length=10000)
     eval_dataset = PSORDataset(dataset_path=dataset_path, image_folder_path=image_folder_path,
-                               categories_path=categories_path, split_start=0, split_length=5000)
+                               categories_path=categories_path, split_start=0, split_length=200)
     test_dataset = PSORDataset(dataset_path=dataset_path, image_folder_path=image_folder_path,
                                categories_path=categories_path, split_start=0, split_length=5000)
 

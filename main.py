@@ -1,3 +1,4 @@
+import os
 import torch
 from trl import SFTConfig, SFTTrainer
 from transformers import Qwen2VLForConditionalGeneration, Qwen2VLProcessor
@@ -34,7 +35,7 @@ def generate_text_from_sample(model, processor, sample, max_new_tokens=1024, dev
     return output_text[0]
 
 def get_model():
-    model_id = "Qwen/Qwen2-VL-7B-Instruct"
+    model_id = "assets/Qwen/Qwen2-VL-7B-Instruct"
     
     # bnb_config = BitsAndBytesConfig(
     #     load_in_4bit=True,
@@ -60,16 +61,16 @@ def train():
     training_args = SFTConfig(
         output_dir="qwen2-7b-instruct-trl-sft-PSOR",  # Directory to save the model
         num_train_epochs=10,  # Number of training epochs
-        per_device_train_batch_size=2,  # Batch size for training
+        per_device_train_batch_size=1,  # Batch size for training
         per_device_eval_batch_size=1,  # Batch size for evaluation
-        gradient_accumulation_steps=4,  # Steps to accumulate gradients
+        gradient_accumulation_steps=1,  # Steps to accumulate gradients
         gradient_checkpointing=True,  # Enable gradient checkpointing for memory efficiency
         # Optimizer and scheduler settings
         optim="adamw_torch_fused",  # Optimizer type
         learning_rate=1e-4,  # Learning rate for training
         lr_scheduler_type="constant",  # Type of learning rate scheduler
         # Logging and evaluation
-        logging_steps=8,  # Steps interval for logging
+        logging_steps=50,  # Steps interval for logging
         eval_steps=1000,  # Steps interval for evaluation
         eval_strategy="steps",  # Strategy for evaluation
         save_strategy="steps",  # Strategy for saving the model
@@ -95,10 +96,12 @@ def train():
 
     training_args.remove_unused_columns = False  # Keep unused columns in dataset
 
+    os.environ["WANDB_MODE"] = "offline"    
     wandb.init(
         project="PSOR",
         name="qwen2-7b-instruct-trl-sft-PSOR",
         config=training_args,
+        mode="offline"
     )
     
     train_dataset, eval_dataset, test_dataset = load_psor_dataset()

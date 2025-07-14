@@ -9,3 +9,6 @@ OK
 `python main.py`
 
 `CUDA_LAUNCH_BLOCKING=1 python main.py`
+
+## Running log
+1. PID=
