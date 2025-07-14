@@ -7,17 +7,22 @@ def compute_metrics(eval_pred: EvalPrediction, processor):
     if isinstance(predictions, tuple):
         predictions = predictions[0]
 
-    predictions = np.argmax(predictions, axis=-1)
-    
     print(predictions.shape, labels[0].shape)
     print(predictions)
-
+    predictions = np.argmax(predictions, axis=-1)
+    
     try:
-        # Validate token IDs are within bounds
-        if np.any(labels < 0) or np.any(labels >= processor.tokenizer.vocab_size):
-            invalid_ids = labels[(labels < 0) | (labels >= processor.tokenizer.vocab_size)]
+        # Validate token IDs are within bounds and filter specific invalid tokens
+        invalid_tokens = [-100, 151643, 151644, 151645]
+        invalid_mask = np.isin(labels, invalid_tokens)
+        print(invalid_mask.sum())
+        
+        if np.any(invalid_mask):
+            invalid_ids = labels[invalid_mask]
             print(f"Warning: Found {len(invalid_ids)} invalid token IDs (min: {np.min(labels)}, max: {np.max(labels)}, vocab_size: {processor.tokenizer.vocab_size})")
-            labels = np.clip(labels, 0, processor.tokenizer.vocab_size - 1)
+            print(f"Specific invalid tokens found: {np.unique(invalid_ids)}")
+            # Replace invalid tokens with 0 (or appropriate padding token)
+            labels = np.where(invalid_mask, 0, labels)
 
         output_text = processor.batch_decode(
             labels, skip_special_tokens=True, clean_up_tokenization_spaces=False
