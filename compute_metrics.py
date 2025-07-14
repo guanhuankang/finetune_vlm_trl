@@ -7,9 +7,9 @@ def compute_metrics(eval_pred: EvalPrediction, processor):
     if isinstance(predictions, tuple):
         predictions = predictions[0]
 
-    predictions = np.argmax(predictions, axis=1)
+    predictions = np.argmax(predictions, axis=-1)
     
-    print(predictions.shape, labels)
+    print(predictions.shape, labels[0].shape)
     print(predictions)
 
     output_text = processor.batch_decode(
@@ -17,7 +17,7 @@ def compute_metrics(eval_pred: EvalPrediction, processor):
     )
 
     print(output_text)
-    
+
     accuracy = (predictions == labels).mean()
     
     print("acc:", accuracy)
