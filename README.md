@@ -3,7 +3,7 @@
 OK
 
 # Installation
-`uv pip install torch torchvision lightning einops timm torchao torchtune pycocotools scipy`
+`uv pip install torch torchvision trl transformers pycocotools wandb qwen_vl_utils pillow peft`
 
 ## Train
 `python main.py`
