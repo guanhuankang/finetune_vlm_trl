@@ -11,6 +11,7 @@ from functools import partial
 from dataset import load_psor_dataset
 from utils import clear_memory, GPU_monitor
 from collate import collate_fn
+from compute_metrics import compute_metrics
 
 def generate_text_from_sample(model, processor, sample, max_new_tokens=1024, device="cuda"):
     text_input = processor.apply_chat_template(
@@ -125,6 +126,7 @@ def train(cfg):
         data_collator=partial(collate_fn, processor=processor),
         peft_config=peft_config,
         processing_class=processor.tokenizer,
+        compute_metrics=compute_metrics,
     )
     trainer.train()
     trainer.save_model(training_args.output_dir)
