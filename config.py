@@ -13,7 +13,7 @@ class Config:
 
         ## Project and Run
         parser.add_argument("--project", type=str, default="PSOR")
-        parser.add_argument("--run_name", type=str, default=f"{ctime}")
+        parser.add_argument("--run_name", type=str, default=f"{ctime}_wandb")
         parser.add_argument("--output_dir", type=str, default=f"{ctime}")
 
         ## Training parameters

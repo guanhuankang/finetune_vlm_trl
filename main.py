@@ -51,7 +51,7 @@ def get_model(cfg):
         # quantization_config=bnb_config,
     )
     
-    processor = Qwen2VLProcessor.from_pretrained(model_id)
+    processor = Qwen2VLProcessor.from_pretrained(model_id, use_fast=True)
     
     return model, processor
 
