@@ -6,6 +6,7 @@ def compute_metrics(eval_pred: EvalPrediction, processor):
     
     if isinstance(predictions, tuple):
         predictions = predictions[0]
+        print("tuple1::", predictions[1::])
 
     print(predictions.shape, labels[0].shape)
     print(predictions)
@@ -16,6 +17,11 @@ def compute_metrics(eval_pred: EvalPrediction, processor):
         invalid_tokens = [-100, 151644, 151645] + [151652, 151653, 151655]
         invalid_mask = np.isin(labels, invalid_tokens)
         print(invalid_mask.sum())
+
+
+        import pickle, time
+        with open("output/batch_"+str(time.ctime()), "wb") as f:
+            pickle.dump(eval_pred, f)
 
         if np.any(invalid_mask):
             invalid_ids = labels[invalid_mask]
