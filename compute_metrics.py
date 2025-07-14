@@ -1,17 +1,23 @@
 from transformers import EvalPrediction
 import numpy as np
 
-def compute_metrics(eval_pred: EvalPrediction):
+def compute_metrics(eval_pred: EvalPrediction, processor):
     predictions, labels = eval_pred
     
-    print(predictions, "$$",  labels)
-    print(type(predictions), type(labels))
-    print(type(predictions[0]), type(labels[0]), len(predictions), len(labels))
-    print(predictions.shape, len(labels), len(labels[0]))
-    
-    predictions = np.argmax(predictions, axis=1)
-    print(predictions, labels)
+    if isinstance(predictions, tuple):
+        predictions = predictions[0]
 
+    predictions = np.argmax(predictions, axis=1)
+    
+    print(predictions.shape, labels)
+    print(predictions)
+
+    output_text = processor.batch_decode(
+        labels, skip_special_tokens=True, clean_up_tokenization_spaces=False
+    )
+
+    print(output_text)
+    
     accuracy = (predictions == labels).mean()
     
     print("acc:", accuracy)

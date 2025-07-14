@@ -126,7 +126,7 @@ def train(cfg):
         data_collator=partial(collate_fn, processor=processor),
         peft_config=peft_config,
         processing_class=processor.tokenizer,
-        compute_metrics=compute_metrics,
+        compute_metrics=partial(compute_metrics, processor=processor)
     )
     trainer.train()
     trainer.save_model(training_args.output_dir)
