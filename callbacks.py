@@ -2,20 +2,22 @@ from transformers import TrainerCallback
 from copy import deepcopy
 
 class GenerationEvalCallback(TrainerCallback):
-    def __init__(self, processor, gen_kwargs=None):
-        self.processor = processor
-        self.gen_kwargs = gen_kwargs or {"max_new_tokens": 1024, "num_beams": 4}
-
     def on_evaluate(self, args, state, control, **kwargs):
         if not state.is_local_process_zero:
             return
+
+        import pickle, time
+        with open("output/callback_"+str(time.time())+".pkl", "wb") as f:
+            pickle.dump((args, state, control, kwargs), f)
+        print((args, state, control, kwargs))
+        return
 
         trainer = kwargs["trainer"]
         gens, refs = [], []
 
         for batch in trainer.get_eval_dataloader():
             import pickle, time
-            with open("output/"+str(time.time())+".pkl", "wb") as f:
+            with open("output/evaluate_batch_"+str(time.time())+".pkl", "wb") as f:
                 pickle.dump(batch, f)
             print(batch)
             
