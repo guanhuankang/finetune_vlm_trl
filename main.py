@@ -13,6 +13,7 @@ from utils import clear_memory, GPU_monitor
 from collate import collate_fn
 from callbacks import GenerationEvaluation
 
+
 def get_model(cfg):
     model_id = cfg.model_id
 
@@ -107,9 +108,7 @@ def train(cfg):
         peft_config=peft_config,
         processing_class=processor.tokenizer,
         compute_metrics=None,
-        callbacks=[
-            GenerationEvaluation(model=model, processor=processor)
-        ],
+        callbacks=[GenerationEvaluation(model=model, processor=processor)],
     )
     trainer.train()
     trainer.save_model(training_args.output_dir)
@@ -117,6 +116,7 @@ def train(cfg):
 
 def test(cfg):
     from torch.utils.data import DataLoader
+
     clear_memory()
 
     model, processor = get_model(cfg=cfg)
@@ -129,12 +129,18 @@ def test(cfg):
         print(f"No adapter path is found. Load pretrained weights.")
 
     _, eval_dataset, _ = load_psor_dataset(cfg=cfg)
-    eval_dataloader = DataLoader(eval_dataset, batch_size=1, collate_fn=partial(collate_fn, processor), shuffle=False, drop_last=False)
+    eval_dataloader = DataLoader(
+        eval_dataset,
+        batch_size=1,
+        collate_fn=partial(collate_fn, processor=processor),
+        shuffle=False,
+        drop_last=False,
+    )
 
     gen_eval = GenerationEvaluation(model, processor)
 
     gen_eval.evaluate(eval_dataloader)
-    
+
     GPU_monitor()
 
 

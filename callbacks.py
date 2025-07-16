@@ -1,5 +1,6 @@
 from transformers import TrainerCallback, AutoProcessor
 import wandb
+from llm_json import json
 from utils import clear_memory
 
 class GenerationEvaluation(TrainerCallback):
@@ -15,12 +16,13 @@ class GenerationEvaluation(TrainerCallback):
             generated_ids = self.model.generate(**model_inputs, max_new_tokens=1024, num_beams=4)
             
             generated_ids = trim(model_inputs.input_ids, generated_ids)
-            generated_text = self.processor.batch_decode(
+            generated_texts = self.processor.batch_decode(
                 generated_ids,
-                skip_special_tokens=False,
+                skip_special_tokens=True,
                 clean_up_tokenization_spaces=False,
             )
-            print({"generated_text": generated_text})
+            print({"generated_texts": [json.loads(x) for x in generated_texts]})
+            
 
     def on_evaluate(self, args, state, control, **kwargs):
         clear_memory()

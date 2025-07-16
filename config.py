@@ -13,8 +13,8 @@ class Config:
 
         ## Project and Run
         parser.add_argument("--project", type=str, default="PSOR")
-        parser.add_argument("--run_name", type=str, default=f"{ctime}")
-        parser.add_argument("--output_dir", type=str, default=f"output/{ctime}")
+        parser.add_argument("--run_name", type=str, default=f"run_{ctime.lower()}")
+        parser.add_argument("--output_dir", type=str, default=f"output/run_{ctime.lower()}")
 
         ## Training parameters
         parser.add_argument("--num_train_epochs", type=int, default=2)
