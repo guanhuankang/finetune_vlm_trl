@@ -4,7 +4,7 @@ from qwen_vl_utils import process_vision_info
 
 def collate_fn(examples, processor):
     texts = [
-        processor.apply_chat_template(example, tokenize=False,add_generation_prompt=True) for example in examples
+        processor.apply_chat_template(example, tokenize=False,add_generation_prompt=False) for example in examples
     ]
     text_val = [
         processor.apply_chat_template(example[0:-1], tokenize=False,add_generation_prompt=True) for example in examples
