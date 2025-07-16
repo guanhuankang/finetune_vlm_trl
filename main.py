@@ -18,7 +18,7 @@ def generate_text_from_sample(
     model, processor, sample, max_new_tokens=1024, device="cuda"
 ):
     text_input = processor.apply_chat_template(
-        sample[:2],
+        sample,
         tokenize=False,
         add_generation_prompt=True,  # Use the sample without the system message
     )
@@ -37,11 +37,11 @@ def generate_text_from_sample(
     ]
     output_text = processor.batch_decode(
         trimmed_generated_ids,
-        skip_special_tokens=True,
+        skip_special_tokens=False,
         clean_up_tokenization_spaces=False,
     )
 
-    return output_text[0]
+    return output_text
 
 
 def get_model(cfg):
@@ -156,11 +156,11 @@ def test(cfg):
 
     _, eval_dataset, _ = load_psor_dataset(cfg=cfg)
 
-    inputs = eval_dataset[0]
-    outputs = generate_text_from_sample(model, processor, inputs)
-    print("inputs", inputs[:2])
-    print("outputs:", outputs)
-    print("labels:", inputs[2::])
+    for inputs in eval_dataset:
+        outputs = generate_text_from_sample(model, processor, inputs[0:-1])
+        print("inputs", inputs[0:-1])
+        print("outputs:", outputs)
+        print("labels:", inputs[-1])
     GPU_monitor()
 
 
