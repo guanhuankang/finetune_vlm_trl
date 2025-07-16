@@ -11,31 +11,21 @@ class GenerationEvalCallback(TrainerCallback):
             return
 
         import pickle, time
-        print((args, state, control, kwargs))
-        with open("output/callback_"+str(time.time())+".pkl", "wb") as f:
-            pickle.dump(kwargs, f)
-        print((args, state, control, kwargs))
 
-        return
+        print(args)
+        print(state)
+        print(control)
+        print(kwargs)
+        
+        model = kwargs["model"]
+        processor = kwargs["processing_class"]
+        eval_dataloader = kwargs["eval_dataloader"]
 
-        trainer = kwargs["trainer"]
         gens, refs = [], []
 
-        for batch in trainer.get_eval_dataloader():
+        for batch in eval_dataloader():
             import pickle, time
             with open("output/evaluate_batch_"+str(time.time())+".pkl", "wb") as f:
                 pickle.dump(batch, f)
             print(batch)
             
-            batch = {k: v.to(trainer.model.device) for k, v in batch.items()}
-            gen_ids = trainer.model.generate(**batch, **self.gen_kwargs)
-            gens.extend(self.processor.tokenizer.batch_decode(gen_ids, skip_special_tokens=True))
-
-            label_ids = batch["labels"]
-            refs.extend(self.processor.tokenizer.batch_decode(label_ids, skip_special_tokens=True))
-
-        metrics = self.compute_metrics_fn({"predictions": gens, "label_ids": refs})
-        metrics = {f"eval_gen_{k}": v for k, v in metrics.items()}
-
-        trainer.log(metrics)
-        return control
