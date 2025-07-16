@@ -11,8 +11,9 @@ class GenerationEvalCallback(TrainerCallback):
             return
 
         import pickle, time
+        print((args, state, control, kwargs))
         with open("output/callback_"+str(time.time())+".pkl", "wb") as f:
-            pickle.dump((args, state, control, kwargs), f)
+            pickle.dump(kwargs, f)
         print((args, state, control, kwargs))
 
         return
