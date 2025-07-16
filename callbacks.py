@@ -39,5 +39,5 @@ class GenerationEvalCallback(TrainerCallback):
             print(output_text)
 
 
-        print(len(len(eval_dataloader)))
+        print(len(eval_dataloader))
         return ""
