@@ -24,6 +24,10 @@ class GenerationEvalCallback(TrainerCallback):
             print(batch)
             try:
                 print("OK", batch.input_ids)
+                print("OK", batch.input_ids.shape, batch.labels.shape)
+                import pickle
+                with open("output/callback.pkl", "wb") as f:
+                    pickle.dump(batch, f)
             except:
                 pass
             generated_ids = model.generate(**batch, max_new_tokens=1024)
@@ -32,8 +36,8 @@ class GenerationEvalCallback(TrainerCallback):
                 skip_special_tokens=True,
                 clean_up_tokenization_spaces=False,
             )
-
-            return output_text[0]
+            print(output_text)
 
 
         print(len(len(eval_dataloader)))
+        return ""
