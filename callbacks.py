@@ -1,5 +1,5 @@
 from transformers import TrainerCallback, AutoProcessor
-from copy import deepcopy
+from utils import clear_memory
 
 class GenerationEvalCallback(TrainerCallback):
     def __init__(self, processor):
@@ -7,6 +7,8 @@ class GenerationEvalCallback(TrainerCallback):
         self.processor = processor
 
     def on_evaluate(self, args, state, control, **kwargs):
+        clear_memory()
+        
         if not state.is_local_process_zero:
             return
 
