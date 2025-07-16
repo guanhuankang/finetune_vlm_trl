@@ -17,7 +17,7 @@ class GenerationEvalCallback(TrainerCallback):
         eval_dataloader = kwargs["eval_dataloader"]
 
         for batch in eval_dataloader:
-            model_inputs = batch.batch_val
+            model_inputs = batch.batch_val.to(batch.device)
             generated_ids = model.generate(**model_inputs, max_new_tokens=1024)
             output_text = processor.batch_decode(
                 generated_ids,
