@@ -14,7 +14,9 @@ class Config:
         ## Project and Run
         parser.add_argument("--project", type=str, default="PSOR")
         parser.add_argument("--run_name", type=str, default=f"run_{ctime.lower()}")
-        parser.add_argument("--output_dir", type=str, default=f"output/run_{ctime.lower()}")
+        parser.add_argument(
+            "--output_dir", type=str, default=f"output/run_{ctime.lower()}"
+        )
 
         ## Training parameters
         parser.add_argument("--num_train_epochs", type=int, default=2)
@@ -46,11 +48,14 @@ class Config:
 
         ## Model parameters
         # parser.add_argument('--sam_checkpoint', type=str, default='assets/sam_vit_h_4b8939.pth')
-        parser.add_argument("--model_id", type=str, default="assets/Qwen/Qwen2-VL-7B-Instruct")
-        
+        parser.add_argument(
+            "--model_id", type=str, default="assets/Qwen/Qwen2-VL-7B-Instruct"
+        )
+
         args = parser.parse_args(args=args)
         for key, value in vars(args).items():
             setattr(self, key, value)
+
 
 def get_config():
     return Config(sys.argv[1::])

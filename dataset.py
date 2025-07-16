@@ -23,10 +23,7 @@ def format_data(sample):
                     "type": "image",
                     "image": sample["image"],
                 },
-                {
-                    "type": "text",
-                    "text": "This is the input image."
-                },
+                {"type": "text", "text": "This is the input image."},
             ],
         },
         {
