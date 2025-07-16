@@ -139,10 +139,7 @@ def train(cfg):
         processing_class=processor.tokenizer,
         compute_metrics=None,
         callbacks=[
-            GenerationEvalCallback(
-                processor=processor,
-                gen_kwargs={"max_new_tokens": 1024, "num_beams": 4},
-            )
+            GenerationEvalCallback(processor=processor)
         ],
     )
     trainer.train()

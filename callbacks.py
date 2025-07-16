@@ -1,7 +1,11 @@
-from transformers import TrainerCallback
+from transformers import TrainerCallback, AutoProcessor
 from copy import deepcopy
 
 class GenerationEvalCallback(TrainerCallback):
+    def __init__(self, processor):
+        super().__init__()
+        self.processor = processor
+
     def on_evaluate(self, args, state, control, **kwargs):
         if not state.is_local_process_zero:
             return
@@ -10,6 +14,7 @@ class GenerationEvalCallback(TrainerCallback):
         with open("output/callback_"+str(time.time())+".pkl", "wb") as f:
             pickle.dump((args, state, control, kwargs), f)
         print((args, state, control, kwargs))
+
         return
 
         trainer = kwargs["trainer"]
