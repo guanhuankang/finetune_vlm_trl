@@ -16,25 +16,26 @@ class GenerationEvalCallback(TrainerCallback):
         processor = kwargs["processing_class"]
         eval_dataloader = kwargs["eval_dataloader"]
 
-        trim = lambda input_ids, output_ids: [ out_ids[len(in_ids)::] for in_ids, out_ids in zip(input_ids, output_ids)]
+        # trim = lambda input_ids, output_ids: [ out_ids[len(in_ids)::] for in_ids, out_ids in zip(input_ids, output_ids)]
+        def trim(input_ids, output_ids):
+            output_ids[output_ids==-100] = 0
+            return output_ids
         
         for batch in eval_dataloader:
-            model_inputs = batch.batch_val.to(model.device)
-            generated_ids = model.generate(**model_inputs, max_new_tokens=10240)
-            print(generated_ids, generated_ids.shape, batch.labels, batch.labels.shape)
+            model_inputs = batch.batch_val
+            generated_ids = model.generate(**model_inputs.to(model.device), max_new_tokens=4096)
             generated_ids = trim(model_inputs.input_ids, generated_ids)
 
             generated_text = processor.batch_decode(
                 generated_ids,
-                skip_special_tokens=True
+                skip_special_tokens=False
             )
             print("generated_text:", generated_text)
 
             label_ids = trim(model_inputs.input_ids, batch.labels)
             label_text = processor.batch_decode(
                 label_ids,
-                skip_special_tokens=True,
-                clean_up_tokenization_spaces=False,
+                skip_special_tokens=False
             )
             print("label_text:", label_text)
 
