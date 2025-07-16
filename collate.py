@@ -4,10 +4,10 @@ from qwen_vl_utils import process_vision_info
 
 def collate_fn(examples, processor):
     texts = [
-        processor.apply_chat_template(example, tokenize=False) for example in examples
+        processor.apply_chat_template(example, tokenize=False,add_generation_prompt=True) for example in examples
     ]
     text_val = [
-        processor.apply_chat_template(example[0:-1], tokenize=False) for example in examples
+        processor.apply_chat_template(example[0:-1], tokenize=False,add_generation_prompt=True) for example in examples
     ]  ## remove assistant answer for val purpose
     image_inputs = [process_vision_info(example)[0] for example in examples]
 
@@ -26,7 +26,6 @@ def collate_fn(examples, processor):
     else:
         image_tokens = [processor.tokenizer.convert_tokens_to_ids(processor.image_token)]  # Convert image token to ID
 
-    # Mask image token IDs in the labels
     for image_token_id in image_tokens:
         labels[labels == image_token_id] = -100  # Mask image token IDs in labels
 

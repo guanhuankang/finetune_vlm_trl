@@ -11,38 +11,7 @@ from functools import partial
 from dataset import load_psor_dataset
 from utils import clear_memory, GPU_monitor
 from collate import collate_fn
-from callbacks import GenerationEvalCallback
-
-
-def generate_text_from_sample(
-    model, processor, sample, max_new_tokens=1024, device="cuda"
-):
-    text_input = processor.apply_chat_template(
-        sample,
-        tokenize=False,
-        add_generation_prompt=True,  # Use the sample without the system message
-    )
-    image_inputs, _ = process_vision_info(sample)
-
-    model_inputs = processor(
-        text=[text_input],
-        images=image_inputs,
-        return_tensors="pt",
-    ).to(device)
-
-    generated_ids = model.generate(**model_inputs, max_new_tokens=max_new_tokens)
-    trimmed_generated_ids = [
-        out_ids[len(in_ids) :]
-        for in_ids, out_ids in zip(model_inputs.input_ids, generated_ids)
-    ]
-    output_text = processor.batch_decode(
-        trimmed_generated_ids,
-        skip_special_tokens=False,
-        clean_up_tokenization_spaces=False,
-    )
-
-    return output_text
-
+from callbacks import GenerationEvaluation
 
 def get_model(cfg):
     model_id = cfg.model_id
@@ -139,7 +108,7 @@ def train(cfg):
         processing_class=processor.tokenizer,
         compute_metrics=None,
         callbacks=[
-            GenerationEvalCallback(processor=processor)
+            GenerationEvaluation(model=model, processor=processor)
         ],
     )
     trainer.train()
@@ -147,20 +116,25 @@ def train(cfg):
 
 
 def test(cfg):
+    from torch.utils.data import DataLoader
     clear_memory()
 
     model, processor = get_model(cfg=cfg)
 
-    adapter_path = cfg.output_dir
-    model.load_adapter(adapter_path)
+    if os.path.isdir(cfg.output_dir):
+        adapter_path = cfg.output_dir
+        model.load_adapter(adapter_path)
+        print(f"Load adapter from {adapter_path}")
+    else:
+        print(f"No adapter path is found. Load pretrained weights.")
 
     _, eval_dataset, _ = load_psor_dataset(cfg=cfg)
+    eval_dataloader = DataLoader(eval_dataset, batch_size=1, collate_fn=partial(collate_fn, processor), shuffle=False, drop_last=False)
 
-    for inputs in eval_dataset:
-        outputs = generate_text_from_sample(model, processor, inputs[0:-1])
-        print("inputs", inputs[0:-1])
-        print("outputs:", outputs)
-        print("labels:", inputs[-1])
+    gen_eval = GenerationEvaluation(model, processor)
+
+    gen_eval.evaluate(eval_dataloader)
+    
     GPU_monitor()
 
 
