@@ -72,7 +72,7 @@ def train(cfg):
         output_dir=cfg.output_dir,  # Directory to save the model
         num_train_epochs=cfg.num_train_epochs,  # Number of training epochs
         per_device_train_batch_size=cfg.per_device_train_batch_size,  # Batch size for training
-        per_device_eval_batch_size=1,  # Batch size for evaluation
+        per_device_eval_batch_size=cfg.per_device_eval_batch_size,  # Batch size for evaluation
         gradient_accumulation_steps=cfg.gradient_accumulation_steps,  # Steps to accumulate gradients
         gradient_checkpointing=True,  # Enable gradient checkpointing for memory efficiency
         # Optimizer and scheduler settings

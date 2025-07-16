@@ -19,6 +19,7 @@ class Config:
         ## Training parameters
         parser.add_argument("--num_train_epochs", type=int, default=8)
         parser.add_argument("--per_device_train_batch_size", type=int, default=1)
+        parser.add_argument("--per_device_eval_batch_size", type=int, default=1)
         parser.add_argument("--gradient_accumulation_steps", type=int, default=1)
         parser.add_argument("--learning_rate", type=float, default=2e-5)
         parser.add_argument("--logging_steps", type=int, default=1)
