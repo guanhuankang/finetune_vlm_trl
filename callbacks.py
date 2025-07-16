@@ -20,8 +20,8 @@ class GenerationEvalCallback(TrainerCallback):
         
         for batch in eval_dataloader:
             model_inputs = batch.batch_val.to(model.device)
-            generated_ids = model.generate(**model_inputs, max_new_tokens=1024)
-            
+            generated_ids = model.generate(**model_inputs, max_new_tokens=10240)
+            print(generated_ids, generated_ids.shape, batch.labels, batch.labels.shape)
             generated_ids = trim(model_inputs.input_ids, generated_ids)
 
             generated_text = processor.batch_decode(
