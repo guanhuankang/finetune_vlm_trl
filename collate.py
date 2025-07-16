@@ -9,7 +9,7 @@ def collate_fn(examples, processor):
     text_val = [
         processor.apply_chat_template(example[0:-1], tokenize=False) for example in examples
     ]  ## remove assistant answer for val purpose
-    image_inputs = [process_vision_info(example) for example in examples]
+    image_inputs = [process_vision_info(example)[0] for example in examples]
 
     batch = processor(
         text=texts, images=image_inputs, return_tensors="pt", padding=True
