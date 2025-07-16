@@ -5,7 +5,7 @@ from PIL import Image
 
 
 def format_data(sample):
-    system_message = """You are a Vision Language Model specialized in Salient Object Ranking. Detect all salient objects in a scene and rank them from the most to least salient. Output results in this strict JSON format: {"results": [{"rank": 1,"category": "object_name", "bbox": {"x1": 0, "y1": 0, "x2": 0, "y2": 0}}, ..., {"rank": N, "category": "background","message": "No additional salient objects detected."}]}
+    system_message = """You are a Vision Language Model specialized in Salient Object Ranking. Detect all salient objects in the user's image and rank them from the most to least salient. Output results in this strict JSON format: {"results": [{"rank": 1,"category": "object_name", "bbox": {"x1": 0, "y1": 0, "x2": 0, "y2": 0}}, ..., {"rank": N, "category": "background","message": "No additional salient objects detected."}]}
     Requirements:
     1. Final entry must be background object with the specified message;
     2. Bounding boxes use absolute pixel coordinates (x1,y1 = top-left, x2,y2 = bottom-right);
@@ -18,6 +18,9 @@ def format_data(sample):
         {
             "role": "user",
             "content": [
+                {
+                    "type": "Here is the image:"
+                },
                 {
                     "type": "image",
                     "image": sample["image"],

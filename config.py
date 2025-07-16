@@ -17,7 +17,7 @@ class Config:
         parser.add_argument("--output_dir", type=str, default=f"output/{ctime}")
 
         ## Training parameters
-        parser.add_argument("--num_train_epochs", type=int, default=8)
+        parser.add_argument("--num_train_epochs", type=int, default=2)
         parser.add_argument("--per_device_train_batch_size", type=int, default=1)
         parser.add_argument("--per_device_eval_batch_size", type=int, default=1)
         parser.add_argument("--gradient_accumulation_steps", type=int, default=1)
