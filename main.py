@@ -11,11 +11,16 @@ from functools import partial
 from dataset import load_psor_dataset
 from utils import clear_memory, GPU_monitor
 from collate import collate_fn
-from compute_metrics import compute_metrics
+from callbacks import GenerationEvalCallback
 
-def generate_text_from_sample(model, processor, sample, max_new_tokens=1024, device="cuda"):
+
+def generate_text_from_sample(
+    model, processor, sample, max_new_tokens=1024, device="cuda"
+):
     text_input = processor.apply_chat_template(
-        sample[:2], tokenize=False, add_generation_prompt=True  # Use the sample without the system message
+        sample[:2],
+        tokenize=False,
+        add_generation_prompt=True,  # Use the sample without the system message
     )
     image_inputs, _ = process_vision_info(sample)
 
@@ -23,37 +28,41 @@ def generate_text_from_sample(model, processor, sample, max_new_tokens=1024, dev
         text=[text_input],
         images=image_inputs,
         return_tensors="pt",
-    ).to(
-        device
-    )
+    ).to(device)
 
     generated_ids = model.generate(**model_inputs, max_new_tokens=max_new_tokens)
-    trimmed_generated_ids = [out_ids[len(in_ids) :] for in_ids, out_ids in zip(model_inputs.input_ids, generated_ids)]
+    trimmed_generated_ids = [
+        out_ids[len(in_ids) :]
+        for in_ids, out_ids in zip(model_inputs.input_ids, generated_ids)
+    ]
     output_text = processor.batch_decode(
-        trimmed_generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False
+        trimmed_generated_ids,
+        skip_special_tokens=True,
+        clean_up_tokenization_spaces=False,
     )
 
     return output_text[0]
 
+
 def get_model(cfg):
     model_id = cfg.model_id
-    
+
     # bnb_config = BitsAndBytesConfig(
     #     load_in_4bit=True,
     #     bnb_4bit_use_double_quant=True,
     #     bnb_4bit_quant_type="nf4",
     #     bnb_4bit_compute_dtype=torch.bfloat16,
     # )
-    
+
     model = Qwen2VLForConditionalGeneration.from_pretrained(
         model_id,
         device_map="auto",
         torch_dtype=torch.bfloat16,
         # quantization_config=bnb_config,
     )
-    
+
     processor = Qwen2VLProcessor.from_pretrained(model_id, use_fast=True)
-    
+
     return model, processor
 
 
@@ -88,7 +97,9 @@ def train(cfg):
         push_to_hub=False,  # Whether to push model to Hugging Face Hub
         report_to="wandb",  # Reporting tool for tracking metrics
         # Gradient checkpointing settings
-        gradient_checkpointing_kwargs={"use_reentrant": False},  # Options for gradient checkpointing
+        gradient_checkpointing_kwargs={
+            "use_reentrant": False
+        },  # Options for gradient checkpointing
         # Dataset configuration
         dataset_text_field="",  # Text field in dataset
         dataset_kwargs={"skip_prepare_dataset": True},  # Additional dataset options
@@ -97,18 +108,18 @@ def train(cfg):
 
     training_args.remove_unused_columns = False  # Keep unused columns in dataset
 
-    os.environ["WANDB_MODE"] = cfg.wandb_mode  
+    os.environ["WANDB_MODE"] = cfg.wandb_mode
     wandb.init(
         project=cfg.project,
         name=cfg.run_name,
         config=training_args,
-        mode=cfg.wandb_mode
+        mode=cfg.wandb_mode,
     )
-    
+
     train_dataset, eval_dataset, test_dataset = load_psor_dataset(cfg=cfg)
-    
+
     model, processor = get_model(cfg=cfg)
-    
+
     peft_config = LoraConfig(
         lora_alpha=16,
         lora_dropout=0.05,
@@ -117,7 +128,7 @@ def train(cfg):
         target_modules=["q_proj", "v_proj"],
         task_type="CAUSAL_LM",
     )
-    
+
     trainer = SFTTrainer(
         model=model,
         args=training_args,
@@ -126,21 +137,28 @@ def train(cfg):
         data_collator=partial(collate_fn, processor=processor),
         peft_config=peft_config,
         processing_class=processor.tokenizer,
-        compute_metrics=partial(compute_metrics, processor=processor)
+        compute_metrics=None,
+        callbacks=[
+            GenerationEvalCallback(
+                processor=processor,
+                gen_kwargs={"max_new_tokens": 1024, "num_beams": 4},
+            )
+        ],
     )
     trainer.train()
     trainer.save_model(training_args.output_dir)
 
+
 def test(cfg):
     clear_memory()
-    
+
     model, processor = get_model(cfg=cfg)
 
     adapter_path = cfg.output_dir
     model.load_adapter(adapter_path)
-    
-    _, eval_dataset, _ = load_psor_dataset()
-    
+
+    _, eval_dataset, _ = load_psor_dataset(cfg=cfg)
+
     inputs = eval_dataset[0]
     outputs = generate_text_from_sample(model, processor, inputs)
     print("inputs", inputs[:2])
@@ -148,8 +166,10 @@ def test(cfg):
     print("labels:", inputs[2::])
     GPU_monitor()
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     from config import get_config
+
     cfg = get_config()
 
     train(cfg=cfg)

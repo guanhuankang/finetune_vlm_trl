@@ -1,10 +1,16 @@
-from transformers import EvalPrediction
+from transformers import EvalPrediction, Qwen2VLProcessor
 import numpy as np
+from dirtyjson import json
+from utils import clear_memory
 
-from transformers import Qwen2VLProcessor
+
+def compute_bbox_category_metrics(predictions: list, labels: list):
+    pass
 
 
 def compute_metrics(eval_pred: EvalPrediction, processor: Qwen2VLProcessor):
+    clear_memory()
+
     predictions, labels = eval_pred
 
     if isinstance(predictions, tuple):
@@ -12,16 +18,29 @@ def compute_metrics(eval_pred: EvalPrediction, processor: Qwen2VLProcessor):
 
     predictions = np.argmax(predictions, axis=-1)
 
-    print()
-    labels[labels == -100] = 0
-    label_text = processor.batch_decode(
-        labels, skip_special_tokens=True, clean_up_tokenization_spaces=False
-    )
-    print("label_text:", label_text)
+    ## token-level
+    pass
 
-    pred_text = processor.batch_decode(
-        predictions, skip_special_tokens=True, clean_up_tokenization_spaces=False
-    )
+    ## token-level between <im_start>assistant (151644 77091) and <im_end> 151645
+
+    ## text-level (human readable)
+    labels[labels == -100] = 0
+    label_text = processor.batch_decode(labels, skip_special_tokens=False)
+
+    pred_text = processor.batch_decode(predictions, skip_special_tokens=False)
+
+    labels = json.loads(
+        '{"results": ['
+        + label_text.split("results")[-1].split("[")[1].split("]")[0]
+        + "]}"
+    )["results"]
+    print(labels)
+
+    predictions = json.loads(
+        '{"results": ['
+        + label_text.split("results")[-1].split("[")[1].split("]")[0]
+        + "]}"
+    )["results"]
     print("pred_text:", pred_text)
 
     print()
