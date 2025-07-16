@@ -6,25 +6,21 @@ def collate_fn(examples, processor):
     texts = [
         processor.apply_chat_template(example, tokenize=False) for example in examples
     ]
+    text_val = [
+        processor.apply_chat_template(example[0:-1], tokenize=False) for example in examples
+    ]  ## remove assistant answer for val purpose
     image_inputs = [process_vision_info(example)[0] for example in examples]
 
     batch = processor(
         text=texts, images=image_inputs, return_tensors="pt", padding=True
     )
+    batch_val = processor(
+        text=text_val, images=image_inputs, return_tensors="pt", padding=True
+    )
     
     labels = batch["input_ids"].clone()  # Clone input IDs for labels
     labels[labels == processor.tokenizer.pad_token_id] = -100  # Mask padding tokens in labels
 
-    # import pickle, time
-    # with open("debug/"+str(time.ctime()), "wb") as f:
-    #     pickle.dump({
-    #         "texts": texts,
-    #         "image_inputs": image_inputs,
-    #         "batch": batch,
-    #         "labels": labels
-    #     }, f)
-    
-    # Ignore the image token index in the loss computation (model specific)
     if isinstance(processor, Qwen2VLProcessor):  # Check if the processor is Qwen2VLProcessor
         image_tokens = [151652, 151653, 151655]  # Specific image token IDs for Qwen2VLProcessor
     else:
@@ -35,5 +31,6 @@ def collate_fn(examples, processor):
         labels[labels == image_token_id] = -100  # Mask image token IDs in labels
 
     batch["labels"] = labels  # Add labels to the batch
+    batch["batch_val"] = batch_val
 
     return batch  # Return the prepared batch
