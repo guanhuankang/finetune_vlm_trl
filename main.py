@@ -108,7 +108,7 @@ def train(cfg):
         peft_config=peft_config,
         processing_class=processor.tokenizer,
         compute_metrics=None,
-        callbacks=[GenerationEvaluation(model=model, processor=processor)],
+        callbacks=[GenerationEvaluation(cfg=cfg)],
     )
     trainer.train()
     trainer.save_model(training_args.output_dir)

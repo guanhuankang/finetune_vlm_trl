@@ -5,9 +5,9 @@ from PIL import Image
 
 
 def format_data(sample):
-    system_message = """You are a Vision Language Model specialized in Salient Object Ranking. Detect all salient objects in the user's image and rank them from the most to least salient. Output results in this strict JSON format: {"results": [{"rank": 1,"category": "object_name", "bbox": {"x1": 0, "y1": 0, "x2": 0, "y2": 0}}, ..., {"rank": N, "category": "background","message": "No additional salient objects detected."}]}
+    system_message = """You are a Vision Language Model specialized in Salient Object Ranking. Detect all salient objects in the user's image and rank them from the most to least salient. Output results in this strict JSON format: {"results": [{"rank": 1,"category": "object_name", "bbox": {"x1": x1:int, "y1": y1:int, "x2": x2:int, "y2": y2:int}}, ..., {"rank": N, "category": "background","bbox": {"x1": 0, "y1": 0, "x2": width, "y2": height}}]}
     Requirements:
-    1. Final entry must be background object with the specified message.
+    1. Final entry must be background object with its bounding box covering the full image (x1=0, y1=0, x2=width, y2=height).
     2. Bounding boxes use absolute pixel coordinates (x1,y1 = top-left, x2,y2 = bottom-right).
     3. The maximum number of salient objects per image is limited to 10.
     4. Output must be pure JSON with no additional text."""
@@ -25,7 +25,7 @@ def format_data(sample):
                 },
                 {
                     "type": "text",
-                    "text": "This is the input image."
+                    "text": f"This is the input image with height = {sample['input_height']} and width = {sample['input_width']}."
                 },
             ],
         },
@@ -47,7 +47,7 @@ class PSORDataset(Dataset):
         input_resolution=(1024, 1024),
     ):
         with open(dataset_path, "r") as f:
-            dataset = json.load(f)[split_start : split_start + split_length]
+            dataset = json.load(f)[split_start: split_start + split_length]
 
         with open(categories_path, "r") as f:
             categories = json.load(f)
@@ -56,15 +56,20 @@ class PSORDataset(Dataset):
         self.categories = categories
         self.image_folder_path = image_folder_path
         self.input_resolution = input_resolution
+        # self.dataset = list(filter(lambda s: s["is_salient"],[self.preprocess_psor_sample(x) for x in dataset]))
         self.dataset = [self.preprocess_psor_sample(x) for x in dataset]
 
     def __getitem__(self, index):
         sample = self.dataset[index]
-        sample["image"] = Image.open(
-            os.path.join(self.image_folder_path, sample["name"] + ".jpg")
-        ).resize(self.input_resolution)
-        sample["label"] = json.dumps({"results": sample["sor"]})
-        return format_data(sample)
+        sample["chat_content"] = format_data({
+            "image": Image.open(
+                os.path.join(self.image_folder_path, sample["name"] + ".jpg")
+            ).resize(self.input_resolution),
+            "label": json.dumps({"results": sample["sor"]}),
+            "input_width": sample["input_width"],
+            "input_height": sample["input_height"],
+        })
+        return sample
 
     def __len__(self):
         return len(self.dataset)
@@ -88,23 +93,21 @@ class PSORDataset(Dataset):
         masks = []
 
         def meet_end():
-            sor.append(
-                {
-                    "rank": rank,
-                    "category": "background",
-                    "msg": "No additional salient objects detected.",
-                }
-            )
+            return {
+                "rank": rank,
+                "category": "background",
+                "bbox": {"x1": 0, "y1": 0, "x2": input_width, "y2": input_height}
+            }
 
         while True:
             if k == "" and k not in table:
-                meet_end()
+                sor.append(meet_end())
                 break
 
             x = table[k]
             anno_idx = x["groundtruth"][x["optimal_index"]]["anno_idx"]
             if anno_idx == "end":
-                meet_end()
+                sor.append(meet_end())
                 break
             else:
                 anno_data = annos[anno_idx]
@@ -134,6 +137,7 @@ class PSORDataset(Dataset):
             "input_width": input_width,
             "sor": sor,
             "masks": masks,
+            "is_salient": len(sor) > 1, 
         }
 
         return sample
