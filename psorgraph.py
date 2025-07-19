@@ -147,15 +147,15 @@ class PSORGraph:
                 text_width, text_height = draw.textsize(text)
             
             text_bg = [
-                x1 - 2, 
-                y1 - text_height - 7, 
-                x1 + text_width + 4, 
-                y1 - 3
+                x1 + 1, 
+                y1 + 1, 
+                x1 + text_width + 3, 
+                y1 + text_height + 3
             ]
             draw.rectangle(text_bg, fill="white")
             
             draw.text(
-                (x1, y1 - text_height - 5),
+                (x1 + 2, y1 + 2),
                 text,
                 fill=color
             )
