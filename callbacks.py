@@ -4,6 +4,7 @@ from llm_json import json
 from utils import clear_memory
 from evaluator import Evaluator
 
+
 class GenerationEvaluation(TrainerCallback):
     def __init__(self, cfg):
         super().__init__()
@@ -24,6 +25,7 @@ class GenerationEvaluation(TrainerCallback):
             model_inputs = batch.batch_val.to(model.device)
 
             generated_ids = model.generate(**model_inputs, max_new_tokens=1024, num_beams=4)
+
             generated_ids = trim(model_inputs.input_ids, generated_ids)
             generated_texts = processor.batch_decode(
                 generated_ids,

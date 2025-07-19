@@ -1,4 +1,3 @@
-
 from transformers import Qwen2VLForConditionalGeneration, Qwen2VLProcessor
 from qwen_vl_utils import process_vision_info
 
