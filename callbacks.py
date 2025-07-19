@@ -36,7 +36,7 @@ class GenerationEvaluation(TrainerCallback):
             for text, info in zip(generated_texts, batch.info):
                 self.evaluator.update(info | parse(text))
 
-        log_metrics = self.evaluate.average()
+        log_metrics = self.evaluator.average()
         wandb.log(log_metrics)
 
         return log_metrics
@@ -45,10 +45,11 @@ class GenerationEvaluation(TrainerCallback):
         clear_memory()
 
         if not state.is_local_process_zero:
-            return
+            return control
         else:
             model = kwargs["model"]
             processor = kwargs["processing_class"]
             eval_dataloader = kwargs["eval_dataloader"]
 
-            return self.evaluate(model, processor, eval_dataloader)
+            eval_results = self.evaluate(model, processor, eval_dataloader)
+            return control

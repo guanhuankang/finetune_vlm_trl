@@ -137,9 +137,9 @@ def test(cfg):
         drop_last=False,
     )
 
-    gen_eval = GenerationEvaluation(model, processor)
+    gen_eval = GenerationEvaluation(cfg=cfg)
 
-    gen_eval.evaluate(eval_dataloader)
+    gen_eval.evaluate(model, processor, eval_dataloader)
 
     GPU_monitor()
 

@@ -2,4 +2,4 @@
 
 source .venv/bin/activate
 
-python main.py --val_test_train_split "0,2;0,2;4,2" 
+python main.py --val_test_train_split "0,2;0,2;4,10" 

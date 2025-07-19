@@ -1,6 +1,5 @@
 import numpy as np
-import json
-
+from PIL import Image, ImageDraw
 
 def enc(lst):
     return ",".join(list(map(str, lst)))
@@ -50,7 +49,7 @@ class COCOAnno:
         return str({"category": self.category, "bbox": str(self.bbox)})
 
 class PSORGraph:
-    def __init__(self, data, categories=None):
+    def __init__(self, data, categories=None, image_path=None):
         table = dict((enc(x["condition"]), x) for x in data["psor_samples"])
         annos = dict((i, COCOAnno(anno, categories)) for i, anno in enumerate(data["annotations"]))
 
@@ -58,6 +57,7 @@ class PSORGraph:
 
         self.table = table
         self.annos = annos
+        self.image_path = image_path
         self.post_init()
 
     def post_init(self):
@@ -112,3 +112,53 @@ class PSORGraph:
                     "action_reward"
                 ],
             }
+
+    def visualize(self, generated_lst):
+        image = Image.open(self.image_path).convert("RGB")
+        draw = ImageDraw.Draw(image)
+        
+        colors = [
+            (234, 87, 61),    # Red-orange
+            (251, 192, 99),   # Light orange
+            (100, 176, 188),  # Teal
+            (68, 102, 153),   # Dark blue
+            (8, 85, 119)      # Deep navy
+        ]
+        
+        for item in generated_lst:
+            bbox = item['bbox']
+            category = item['category']
+            rank = item['rank']
+            
+            x1, y1, x2, y2 = bbox.x1, bbox.y1, bbox.x2, bbox.y2
+            
+            color = colors[min(rank, len(colors))-1]
+            
+            draw.rectangle([x1, y1, x2, y2], outline=color, width=3)
+            
+            text = f"{rank}:{category}"
+            
+            # Calculate text size (using textbbox for newer Pillow versions)
+            try:
+                text_bbox = draw.textbbox((0, 0), text)
+                text_width = text_bbox[2] - text_bbox[0]
+                text_height = text_bbox[3] - text_bbox[1]
+            except:
+                text_width, text_height = draw.textsize(text)
+            
+            text_bg = [
+                x1 - 2, 
+                y1 - text_height - 7, 
+                x1 + text_width + 4, 
+                y1 - 3
+            ]
+            draw.rectangle(text_bg, fill="white")
+            
+            draw.text(
+                (x1, y1 - text_height - 5),
+                text,
+                fill=color
+            )
+        
+        return image
+
