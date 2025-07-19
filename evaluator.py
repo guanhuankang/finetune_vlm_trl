@@ -39,6 +39,9 @@ class Evaluator:
     def init(self):
         self.results = []
 
+    def __len__(self):
+        return len(self.results)
+
     def update(self, x: dict):
         """x is a dict with keys:
         "name":
@@ -72,13 +75,14 @@ class Evaluator:
 
         generated_lst = sorted(x["results"], key=lambda obj: obj["rank"])
 
-        wandb.log(
-            {
-                "visuals": wandb.Image(
-                    graph.visualize(generated_lst), caption=x["name"]
-                )
-            }
-        )
+        if len(self) <= 3:
+            wandb.log(
+                {
+                    "Eval_Visual": wandb.Image(
+                        graph.visualize(generated_lst), caption=x["name"]
+                    )
+                }
+            )
 
         for obj in generated_lst:
             y = graph.match(obj, state)
@@ -106,11 +110,11 @@ class Evaluator:
         for scores in self.results:
             for k, v in scores.items():
                 ret[k] = ret.get(k, 0.0) + v
-        return ret
+        return ret | {"count": len(self)}
 
     def average(self):
         n = len(self.results)
         ret = self.sum()
         for k, v in ret.items():
             ret[k] = v / n
-        return ret
+        return ret | {"count": len(self)}

@@ -21,7 +21,7 @@ class GenerationEvaluation(TrainerCallback):
                 return {"results": []}
         
         self.evaluator.init()
-        for batch in eval_dataloader:
+        for index, batch in enumerate(eval_dataloader):
             model_inputs = batch.batch_val.to(model.device)
 
             generated_ids = model.generate(**model_inputs, max_new_tokens=1024, num_beams=4)
@@ -36,11 +36,8 @@ class GenerationEvaluation(TrainerCallback):
             for text, info in zip(generated_texts, batch.info):
                 self.evaluator.update(info | parse(text))
 
-        log_metrics = self.evaluator.average()
-        wandb.log(log_metrics)
-
-        return log_metrics
-
+        return self.evaluator.average()
+    
     def on_evaluate(self, args, state, control, **kwargs):
         clear_memory()
 
@@ -51,5 +48,8 @@ class GenerationEvaluation(TrainerCallback):
             processor = kwargs["processing_class"]
             eval_dataloader = kwargs["eval_dataloader"]
 
-            eval_results = self.evaluate(model, processor, eval_dataloader)
+            log_metrics = self.evaluate(model, processor, eval_dataloader)
+            wandb.log(log_metrics)
+            print(log_metrics)
+            
             return control

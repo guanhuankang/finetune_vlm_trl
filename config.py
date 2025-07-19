@@ -21,13 +21,13 @@ class Config:
         ## Training parameters
         parser.add_argument("--num_train_epochs", type=int, default=2)
         parser.add_argument("--per_device_train_batch_size", type=int, default=1)
-        parser.add_argument("--per_device_eval_batch_size", type=int, default=1)
         parser.add_argument("--gradient_accumulation_steps", type=int, default=1)
-        parser.add_argument("--learning_rate", type=float, default=2e-6)
+        parser.add_argument("--per_device_eval_batch_size", type=int, default=1)
         parser.add_argument("--logging_steps", type=int, default=1)
-        parser.add_argument("--eval_steps", type=int, default=2)
+        parser.add_argument("--eval_steps", type=int, default=1)
         parser.add_argument("--save_steps", type=int, default=2500)
         parser.add_argument("--wandb_mode", type=str, default="offline")
+        parser.add_argument("--learning_rate", type=float, default=2e-6)
 
         ## Dataset
         parser.add_argument(

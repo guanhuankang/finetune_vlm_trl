@@ -81,7 +81,7 @@ def train(cfg):
     os.environ["WANDB_MODE"] = cfg.wandb_mode
     wandb.init(
         project=cfg.project,
-        name=cfg.run_name,
+        name="train_"+cfg.run_name,
         config=training_args,
         mode=cfg.wandb_mode,
     )
@@ -127,6 +127,14 @@ def test(cfg):
         print(f"Load adapter from {adapter_path}")
     else:
         print(f"No adapter path is found. Load pretrained weights.")
+
+    # os.environ["WANDB_MODE"] = cfg.wandb_mode
+    # wandb.init(
+    #     project=cfg.project,
+    #     name="test_"+cfg.run_name,
+    #     config=cfg,
+    #     mode=cfg.wandb_mode,
+    # )
 
     _, eval_dataset, _ = load_psor_dataset(cfg=cfg)
     eval_dataloader = DataLoader(
