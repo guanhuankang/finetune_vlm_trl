@@ -86,7 +86,7 @@ def train(cfg):
         mode=cfg.wandb_mode,
     )
 
-    train_dataset, eval_dataset, test_dataset = load_psor_dataset(cfg=cfg)
+    eval_dataset, test_dataset, train_dataset = load_psor_dataset(cfg=cfg)
 
     model, processor = get_model(cfg=cfg)
 
@@ -136,9 +136,9 @@ def test(cfg):
     #     mode=cfg.wandb_mode,
     # )
 
-    _, eval_dataset, _ = load_psor_dataset(cfg=cfg)
+    _, test_dataset, _ = load_psor_dataset(cfg=cfg)
     eval_dataloader = DataLoader(
-        eval_dataset,
+        test_dataset,
         batch_size=1,
         collate_fn=partial(collate_fn, processor=processor),
         shuffle=False,

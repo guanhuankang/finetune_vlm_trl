@@ -9,8 +9,9 @@ def format_data(sample):
     Requirements:
     1. Final entry must be background object with its bounding box covering the full image (x1=0, y1=0, x2=width, y2=height).
     2. Bounding boxes use absolute pixel coordinates (x1,y1 = top-left, x2,y2 = bottom-right).
-    3. The maximum number of salient objects per image is limited to 10.
+    3. Images typically contain only a few salient objects, with a maximum limit of 10 per image.
     4. Output must be pure JSON with no additional text."""
+    # The maximum number of salient objects per image is limited to 10.
     return [
         {
             "role": "system",
@@ -173,7 +174,7 @@ def load_psor_dataset(cfg):
         split_length=si[5],
     )
 
-    return train_dataset, eval_dataset, test_dataset
+    return eval_dataset, test_dataset, train_dataset
 
 
 if __name__ == "__main__":
