@@ -52,7 +52,8 @@ class Evaluator:
         "results": list of detected objects
             {"rank": 1,"category": "object_name", "bbox": {"x1": 0, "y1": 0, "x2": 0, "y2": 0}}
         """
-        graph = self.graphs[self.name_map_to_dataset_index[x["name"]]]
+        name = x["name"]
+        graph = self.graphs[self.name_map_to_dataset_index[name]]
 
         state = []
         scores = {
@@ -76,13 +77,8 @@ class Evaluator:
         generated_lst = sorted(x["results"], key=lambda obj: obj["rank"])
 
         if len(self) <= 3:
-            wandb.log(
-                {
-                    "Eval_Visual": wandb.Image(
-                        graph.visualize(generated_lst), caption=x["name"]
-                    )
-                }
-            )
+            vis = wandb.Image(graph.visualize(generated_lst), caption=name)
+            wandb.log({name: vis})
 
         for obj in generated_lst:
             y = graph.match(obj, state)
