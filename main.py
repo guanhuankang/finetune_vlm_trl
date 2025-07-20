@@ -134,13 +134,13 @@ def test(cfg):
     else:
         print(f"No adapter path is found. Load pretrained weights.")
 
-    # os.environ["WANDB_MODE"] = cfg.wandb_mode
-    # wandb.init(
-    #     project=cfg.project,
-    #     name="test_"+cfg.run_name,
-    #     config=cfg,
-    #     mode=cfg.wandb_mode,
-    # )
+    os.environ["WANDB_MODE"] = cfg.wandb_mode
+    wandb.init(
+        project=cfg.project,
+        name="test_"+cfg.run_name,
+        config=cfg,
+        mode=cfg.wandb_mode,
+    )
 
     _, test_dataset, _ = load_psor_dataset(cfg=cfg)
     eval_dataloader = DataLoader(

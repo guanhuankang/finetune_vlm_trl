@@ -45,6 +45,7 @@ class PSORDataset(Dataset):
         categories_path,
         split_start,
         split_length,
+        split,
         input_resolution=(1024, 1024),
     ):
         with open(dataset_path, "r") as f:
@@ -59,10 +60,11 @@ class PSORDataset(Dataset):
         self.input_resolution = input_resolution
         # self.dataset = list(filter(lambda s: s["is_salient"],[self.preprocess_psor_sample(x) for x in dataset]))
         self.dataset = [self.preprocess_psor_sample(x) for x in dataset]
+        self.split = split
 
     def __getitem__(self, index):
         sample = self.dataset[index]
-        sample["chat_content"] = format_data({
+        chat_content = format_data({
             "image": Image.open(
                 os.path.join(self.image_folder_path, sample["name"] + ".jpg")
             ).resize(self.input_resolution),
@@ -70,6 +72,12 @@ class PSORDataset(Dataset):
             "input_width": sample["input_width"],
             "input_height": sample["input_height"],
         })
+
+        if self.split != "train":
+            sample["chat_content"] = chat_content[0:-1]
+        else:
+            sample["chat_content"] = chat_content
+
         return sample
 
     def __len__(self):
@@ -158,6 +166,7 @@ def load_psor_dataset(cfg):
         categories_path=categories_path,
         split_start=si[0],
         split_length=si[1],
+        split="val",
     )
     test_dataset = PSORDataset(
         dataset_path=dataset_path,
@@ -165,6 +174,7 @@ def load_psor_dataset(cfg):
         categories_path=categories_path,
         split_start=si[2],
         split_length=si[3],
+        split="test",
     )
     train_dataset = PSORDataset(
         dataset_path=dataset_path,
@@ -172,6 +182,7 @@ def load_psor_dataset(cfg):
         categories_path=categories_path,
         split_start=si[4],
         split_length=si[5],
+        split="train",
     )
 
     return eval_dataset, test_dataset, train_dataset

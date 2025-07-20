@@ -32,7 +32,6 @@ class Evaluator:
             )
             for data in dataset
         ]
-        wandb.log({"The Size of Evaluation Graphs": len(self.graphs)})
 
         self.init()
 

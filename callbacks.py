@@ -23,9 +23,12 @@ class GenerationEvaluation(TrainerCallback):
         
         self.evaluator.init()
         for index, batch in tqdm.tqdm(enumerate(eval_dataloader)):
-            model_inputs = batch.batch_val.to(model.device)
+            batch_info = batch.info
+            batch.pop("info")
 
-            generated_ids = model.generate(**model_inputs, max_new_tokens=1024, num_beams=4)
+            model_inputs = batch.to(model.device)
+
+            generated_ids = model.generate(**model_inputs, max_new_tokens=1024, num_beams=1)
 
             generated_ids = trim(model_inputs.input_ids, generated_ids)
             generated_texts = processor.batch_decode(
@@ -34,7 +37,7 @@ class GenerationEvaluation(TrainerCallback):
                 clean_up_tokenization_spaces=False,
             )
             
-            for text, info in zip(generated_texts, batch.info):
+            for text, info in zip(generated_texts, batch_info):
                 self.evaluator.update(info | parse(text))
 
         return self.evaluator.average()
