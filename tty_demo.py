@@ -12,6 +12,7 @@ from dataset import load_psor_dataset
 from config import get_config
 from evaluator import Evaluator
 from collate import collate_fn
+from callbacks import GenerationEvaluation
 
 def parse(s):
     try:
@@ -85,7 +86,7 @@ if __name__=="__main__":
     os.environ["WANDB_MODE"] = cfg.wandb_mode
     wandb.init(
         project=cfg.project,
-        name="train_"+cfg.run_name,
+        name="tty_demo_"+cfg.run_name,
         config=cfg,
         mode=cfg.wandb_mode,
     )
@@ -117,33 +118,7 @@ if __name__=="__main__":
         shuffle=False,
         drop_last=False,
     )
-    
-    ## Evaluator
-    evaluator = Evaluator(cfg=cfg)
-    evaluator.init()
 
-    print("Generation Start:::")
-    import time
-
-    trim = lambda input_ids, output_ids: [ out_ids[len(in_ids)::] for in_ids, out_ids in zip(input_ids, output_ids)]
-    for batch in eval_dataloader:
-        batch_info = batch.info
-        batch.pop("info")
-        batch = batch.to("cuda")
-        
-        start_time = time.time_ns()
-
-        generated_ids = model.generate(**batch, max_new_tokens = 1024, num_beams=1)
-        # generated_ids = trim(batch.input_ids, generated_ids)
-        generated_texts = processor.batch_decode(
-            generated_ids,
-            skip_special_tokens=True,
-            clean_up_tokenization_spaces=False,
-        )
-
-        end_time = time.time_ns()
-        print("generation time:", (end_time - start_time) / 1e9, generated_texts)
-        
-        for text, info in zip(generated_texts, batch_info):
-            evaluator.update(info | parse(text))
-        print(evaluator.average())
+    callback = GenerationEvaluation(cfg=cfg)
+    results = callback.evaluate(model=model, processor=processor, eval_dataloader=eval_dataloader)
+    print(results)
