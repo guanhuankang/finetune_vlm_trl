@@ -11,9 +11,8 @@ uv pip install torch torchvision trl transformers pycocotools wandb qwen_vl_util
 ```
 
 ## Training
-`python main.py`
-
-`CUDA_LAUNCH_BLOCKING=1 python main.py`
-
-## Running log
-1. PID=
+Run scripts to train the model and test model.
+```shell
+source .venv/bin/activate && python main.py
+```
+We use wandb to record training log.
