@@ -13,6 +13,15 @@ from utils import clear_memory, GPU_monitor
 from collate import collate_fn
 from callbacks import GenerationEvaluation
 
+def init_wandb(cfg, training_args):
+    os.environ["WANDB_MODE"] = cfg.wandb_mode
+    wandb.init(
+        project=cfg.project,
+        id=cfg.run_id,
+        name=cfg.run_name,
+        config=training_args,
+        mode=cfg.wandb_mode,
+    )
 
 def get_model(cfg):
     model_id = cfg.model_id
@@ -84,13 +93,7 @@ def train(cfg):
         remove_unused_columns=False,
     )
 
-    os.environ["WANDB_MODE"] = cfg.wandb_mode
-    wandb.init(
-        project=cfg.project,
-        name="train_"+cfg.run_name,
-        config=training_args,
-        mode=cfg.wandb_mode,
-    )
+    init_wandb(cfg, training_args=training_args)
 
     eval_dataset, test_dataset, train_dataset = load_psor_dataset(cfg=cfg)
 
@@ -133,17 +136,12 @@ def test(cfg):
         print(f"Load adapter from {adapter_path}")
     else:
         print(f"No adapter path is found. Load pretrained weights.")
-
-    os.environ["WANDB_MODE"] = cfg.wandb_mode
-    wandb.init(
-        project=cfg.project,
-        name="test_"+cfg.run_name,
-        config=cfg,
-        mode=cfg.wandb_mode,
-    )
+    
+    if wandb.run == None:
+        init_wandb(cfg, training_args=cfg)
 
     _, test_dataset, _ = load_psor_dataset(cfg=cfg)
-    eval_dataloader = DataLoader(
+    test_dataloader = DataLoader(
         test_dataset,
         batch_size=cfg.per_device_eval_batch_size,
         collate_fn=partial(collate_fn, processor=processor),
@@ -153,7 +151,7 @@ def test(cfg):
 
     gen_eval = GenerationEvaluation(cfg=cfg)
 
-    gen_eval.evaluate(model, processor, eval_dataloader)
+    gen_eval.evaluate(model, processor, test_dataloader)
 
     GPU_monitor()
 

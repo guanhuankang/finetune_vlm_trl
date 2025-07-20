@@ -1,11 +1,12 @@
 import argparse
 import time
 import sys
-
+import secrets
 
 class Config:
     def __init__(self, args=[]):
-        ctime = time.ctime()
+        ctime = time.strftime("%Y%m%d_%H%M%S")
+        run_id = secrets.token_hex(4)
 
         parser = argparse.ArgumentParser(
             description="Configuration for the model training and evaluation."
@@ -13,9 +14,10 @@ class Config:
 
         ## Project and Run
         parser.add_argument("--project", type=str, default="PSOR")
-        parser.add_argument("--run_name", type=str, default=f"run_{ctime.lower()}")
+        parser.add_argument("--run_id", type=str, default=run_id)
+        parser.add_argument("--run_name", type=str, default=f"{ctime}-{run_id}")
         parser.add_argument(
-            "--output_dir", type=str, default=f"output/run_{ctime.lower()}"
+            "--output_dir", type=str, default=f"output/{ctime}-{run_id}"
         )
 
         ## Training parameters
