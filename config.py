@@ -17,6 +17,7 @@ class Config:
         parser.add_argument("--project", type=str, default="PSOR")
         parser.add_argument("--run_id", type=str, default=run_id)
         parser.add_argument("--output_root", type=str, default="output/")
+        parser.add_argument("--runs_root", type=str, default="runs/")
         
         ## Train or Test Mode
         parser.add_argument('--evaluation', action='store_true', help='Evaluation Mode')
@@ -60,9 +61,10 @@ class Config:
         for key, value in vars(args).items():
             setattr(self, key, value)
 
-def get_config():
-    cfg = Config(sys.argv[1::])
+def get_config(args=[]):
+    cfg = Config(args + sys.argv[1::])
     cfg.output_dir = os.path.join(cfg.output_root, cfg.run_id)
+    cfg.runs_dir = os.path.join(cfg.runs_root, cfg.run_id)
     return cfg
 
 if __name__ == "__main__":

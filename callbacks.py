@@ -26,7 +26,7 @@ class GenerationEvaluation(TrainerCallback):
             batch_info = batch.info
             batch.pop("info")
 
-            model_inputs = batch.to(model.device)
+            model_inputs = batch.to("cuda")
 
             generated_ids = model.generate(**model_inputs, max_new_tokens=1024, num_beams=1)
 

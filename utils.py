@@ -28,3 +28,17 @@ def clear_memory():
     gc.collect()
     time.sleep(2)
     GPU_monitor()
+
+
+def init_wandb(cfg, training_args):
+    import os
+    import wandb
+    
+    os.environ["WANDB_MODE"] = cfg.wandb_mode
+    wandb.init(
+        project=cfg.project,
+        id=cfg.run_id,
+        name=cfg.run_id,
+        config=training_args,
+        mode=cfg.wandb_mode,
+    )

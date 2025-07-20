@@ -9,19 +9,9 @@ from qwen_vl_utils import process_vision_info
 from functools import partial
 
 from dataset import load_psor_dataset
-from utils import clear_memory, GPU_monitor
+from utils import clear_memory, GPU_monitor, init_wandb
 from collate import collate_fn
 from callbacks import GenerationEvaluation
-
-def init_wandb(cfg, training_args):
-    os.environ["WANDB_MODE"] = cfg.wandb_mode
-    wandb.init(
-        project=cfg.project,
-        id=cfg.run_id,
-        name=cfg.run_id,
-        config=training_args,
-        mode=cfg.wandb_mode,
-    )
 
 def get_model(cfg):
     model_id = cfg.model_id
@@ -43,7 +33,6 @@ def get_model(cfg):
     processor = Qwen2VLProcessor.from_pretrained(model_id, use_fast=True)
 
     return model, processor
-
 
 def train(cfg):
     # Configure training arguments
@@ -130,8 +119,8 @@ def test(cfg):
 
     model, processor = get_model(cfg=cfg)
 
-    if os.path.isdir(cfg.output_dir):
-        adapter_path = cfg.output_dir
+    if os.path.isdir(cfg.runs_dir):
+        adapter_path = cfg.runs_dir
         model.load_adapter(adapter_path)
         print(f"Load adapter from {adapter_path}")
     else:

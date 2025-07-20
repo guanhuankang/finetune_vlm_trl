@@ -10,9 +10,9 @@ import wandb
 
 from dataset import load_psor_dataset
 from config import get_config
-from evaluator import Evaluator
 from collate import collate_fn
 from callbacks import GenerationEvaluation
+from utils import init_wandb
 
 def parse(s):
     try:
@@ -81,16 +81,9 @@ def generate_text_from_sample(model, processor, sample, max_new_tokens=1024, dev
     return output_text[0], (input_height, input_width) 
 
 if __name__=="__main__":
-    cfg = get_config()
+    cfg = get_config(["--evaluation"])
     
-    os.environ["WANDB_MODE"] = cfg.wandb_mode
-    wandb.init(
-        project=cfg.project,
-        id=cfg.run_id,
-        name="tty_demo_"+cfg.run_name,
-        config=cfg,
-        mode=cfg.wandb_mode,
-    )
+    init_wandb(cfg=cfg, training_args=cfg)
 
     # Model & Processor
     model_id = cfg.model_id
@@ -102,8 +95,8 @@ if __name__=="__main__":
 
     processor = Qwen2VLProcessor.from_pretrained(model_id)
 
-    if os.path.isdir(cfg.output_dir):
-        adapter_path = cfg.output_dir
+    if os.path.isdir(cfg.runs_dir):
+        adapter_path = cfg.runs_dir
         model.load_adapter(adapter_path)
         print(f"Load adapter from {adapter_path}")
     else:
