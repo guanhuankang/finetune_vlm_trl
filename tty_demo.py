@@ -86,6 +86,7 @@ if __name__=="__main__":
     os.environ["WANDB_MODE"] = cfg.wandb_mode
     wandb.init(
         project=cfg.project,
+        id=cfg.run_id,
         name="tty_demo_"+cfg.run_name,
         config=cfg,
         mode=cfg.wandb_mode,

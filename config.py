@@ -5,7 +5,7 @@ import secrets
 
 class Config:
     def __init__(self, args=[]):
-        ctime = time.strftime("%Y%m%d_%H%M%S")
+        # ctime = time.strftime("%Y%m%d_%H%M%S")
         run_id = secrets.token_hex(4)
 
         parser = argparse.ArgumentParser(
@@ -15,9 +15,9 @@ class Config:
         ## Project and Run
         parser.add_argument("--project", type=str, default="PSOR")
         parser.add_argument("--run_id", type=str, default=run_id)
-        parser.add_argument("--run_name", type=str, default=f"{ctime}-{run_id}")
+        parser.add_argument("--run_name", type=str, default=f"{run_id}")
         parser.add_argument(
-            "--output_dir", type=str, default=f"output/{ctime}-{run_id}"
+            "--output_dir", type=str, default=f"output/{run_id}"
         )
 
         ## Training parameters

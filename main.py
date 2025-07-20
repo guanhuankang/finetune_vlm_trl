@@ -153,8 +153,6 @@ def test(cfg):
 
     gen_eval.evaluate(model, processor, test_dataloader)
 
-    GPU_monitor()
-
 
 if __name__ == "__main__":
     from config import get_config
