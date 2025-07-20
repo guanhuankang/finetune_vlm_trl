@@ -18,7 +18,7 @@ def init_wandb(cfg, training_args):
     wandb.init(
         project=cfg.project,
         id=cfg.run_id,
-        name=cfg.run_name,
+        name=cfg.run_id,
         config=training_args,
         mode=cfg.wandb_mode,
     )
@@ -159,5 +159,7 @@ if __name__ == "__main__":
 
     cfg = get_config()
 
-    train(cfg=cfg)
-    test(cfg=cfg)
+    if cfg.evaluation:
+        test(cfg=cfg)
+    else:
+        train(cfg=cfg)

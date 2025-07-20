@@ -16,3 +16,9 @@ Run scripts to train the model and test model.
 source .venv/bin/activate && python main.py
 ```
 We use wandb to record training log.
+
+
+Evaluation Mode:
+```shell
+source .venv/bin/activate && python main.py --evaluation --run_id RUN_ID
+```

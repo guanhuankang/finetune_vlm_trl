@@ -2,6 +2,7 @@ import argparse
 import time
 import sys
 import secrets
+import os
 
 class Config:
     def __init__(self, args=[]):
@@ -15,10 +16,10 @@ class Config:
         ## Project and Run
         parser.add_argument("--project", type=str, default="PSOR")
         parser.add_argument("--run_id", type=str, default=run_id)
-        parser.add_argument("--run_name", type=str, default=f"{run_id}")
-        parser.add_argument(
-            "--output_dir", type=str, default=f"output/{run_id}"
-        )
+        parser.add_argument("--output_root", type=str, default="output/")
+        
+        ## Train or Test Mode
+        parser.add_argument('--evaluation', action='store_true', help='Evaluation Mode')
 
         ## Training parameters
         parser.add_argument("--num_train_epochs", type=int, default=2)
@@ -59,10 +60,10 @@ class Config:
         for key, value in vars(args).items():
             setattr(self, key, value)
 
-
 def get_config():
-    return Config(sys.argv[1::])
-
+    cfg = Config(sys.argv[1::])
+    cfg.output_dir = os.path.join(cfg.output_root, cfg.run_id)
+    return cfg
 
 if __name__ == "__main__":
     config = get_config()
