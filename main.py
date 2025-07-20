@@ -74,9 +74,15 @@ def train(cfg):
         dataset_text_field="",  # Text field in dataset
         dataset_kwargs={"skip_prepare_dataset": True},  # Additional dataset options
         # max_seq_length=1024  # Maximum sequence length for input
-    )
 
-    training_args.remove_unused_columns = False  # Keep unused columns in dataset
+        # --- Multi-GPU Specific ---
+        dataloader_num_workers=cfg.num_gpus,  # Optimize data loading
+        ddp_find_unused_parameters=False,  # Critical for DDP
+        ddp_timeout=1800,  # Prevent timeouts
+        # -------------------------
+        
+        remove_unused_columns=False,
+    )
 
     os.environ["WANDB_MODE"] = cfg.wandb_mode
     wandb.init(
