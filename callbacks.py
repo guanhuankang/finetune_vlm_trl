@@ -1,5 +1,6 @@
 from transformers import TrainerCallback, AutoProcessor
 import wandb
+import tqdm
 from llm_json import json
 from utils import clear_memory
 from evaluator import Evaluator
@@ -21,7 +22,7 @@ class GenerationEvaluation(TrainerCallback):
                 return {"results": []}
         
         self.evaluator.init()
-        for index, batch in enumerate(eval_dataloader):
+        for index, batch in tqdm.tqdm(enumerate(eval_dataloader)):
             model_inputs = batch.batch_val.to(model.device)
 
             generated_ids = model.generate(**model_inputs, max_new_tokens=1024, num_beams=4)

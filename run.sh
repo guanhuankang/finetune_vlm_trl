@@ -8,7 +8,7 @@ python main.py \
     --num_gpus 1\
     --per_device_train_batch_size 1 \
     --gradient_accumulation_steps 1 \
-    --logging_steps 2 \
+    --logging_steps 1 \
     --eval_steps 10 \
     --save_steps 100 \
     --wandb_mode offline 
