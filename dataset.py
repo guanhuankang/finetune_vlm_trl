@@ -87,8 +87,8 @@ class PSORDataset(Dataset):
         name = raw_sample["image"]
         height = raw_sample["height"]
         width = raw_sample["width"]
-        input_height = self.input_resolution[0]
-        input_width = self.input_resolution[1]
+        input_width = self.input_resolution[0]
+        input_height = self.input_resolution[1]
 
         table = dict(
             (",".join(list(map(str, x["condition"]))), x)
@@ -167,6 +167,7 @@ def load_psor_dataset(cfg):
         split_start=si[0],
         split_length=si[1],
         split="val",
+        input_resolution=(cfg.input_width, cfg.input_height),
     )
     test_dataset = PSORDataset(
         dataset_path=dataset_path,
@@ -175,6 +176,7 @@ def load_psor_dataset(cfg):
         split_start=si[2],
         split_length=si[3],
         split="test",
+        input_resolution=(cfg.input_width, cfg.input_height),
     )
     train_dataset = PSORDataset(
         dataset_path=dataset_path,
@@ -183,6 +185,7 @@ def load_psor_dataset(cfg):
         split_start=si[4],
         split_length=si[5],
         split="train",
+        input_resolution=(cfg.input_width, cfg.input_height),
     )
 
     return eval_dataset, test_dataset, train_dataset

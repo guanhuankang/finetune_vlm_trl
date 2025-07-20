@@ -50,6 +50,8 @@ class Config:
             default="0,200;0,5000;5000,10000",
             help="start,length",
         )
+        parser.add_argument("--input_width", type=int, default=1024)
+        parser.add_argument("--input_height", type=int, default=1024)
 
         ## Model parameters
         # parser.add_argument('--sam_checkpoint', type=str, default='assets/sam_vit_h_4b8939.pth')

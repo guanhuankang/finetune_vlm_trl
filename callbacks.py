@@ -5,12 +5,11 @@ from llm_json import json
 from utils import clear_memory
 from evaluator import Evaluator
 
-
-class GenerationEvaluation(TrainerCallback):
+class GenerationEvaluation:
     def __init__(self, cfg):
         super().__init__()
         self.evaluator = Evaluator(cfg=cfg)
-
+    
     def evaluate(self, model, processor, eval_dataloader):
         trim = lambda input_ids, output_ids: [ out_ids[len(in_ids)::] for in_ids, out_ids in zip(input_ids, output_ids)]
         def parse(s):
@@ -41,6 +40,11 @@ class GenerationEvaluation(TrainerCallback):
                 self.evaluator.update(info | parse(text))
 
         return self.evaluator.average()
+
+class GenerationEvaluationCallback(TrainerCallback):
+    def __init__(self, cfg):
+        super().__init__()
+        self.ge = GenerationEvaluation(cfg=cfg)
     
     def on_evaluate(self, args, state, control, **kwargs):
         clear_memory()
@@ -52,7 +56,7 @@ class GenerationEvaluation(TrainerCallback):
             processor = kwargs["processing_class"]
             eval_dataloader = kwargs["eval_dataloader"]
 
-            log_metrics = self.evaluate(model, processor, eval_dataloader)
+            log_metrics = self.ge.evaluate(model, processor, eval_dataloader)
             wandb.log(log_metrics)
             print(log_metrics)
             

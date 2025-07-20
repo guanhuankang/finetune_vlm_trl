@@ -7,12 +7,15 @@ from functools import partial
 import tqdm
 from llm_json import json
 import wandb
+from PIL import Image
 
-from dataset import load_psor_dataset
+from dataset import load_psor_dataset, format_data
 from config import get_config
 from collate import collate_fn
 from callbacks import GenerationEvaluation
 from utils import init_wandb
+from evaluator import Evaluator
+import time
 
 def parse(s):
     try:
@@ -22,42 +25,9 @@ def parse(s):
     except:
         return {"results": []}
 
-def format_data(sample):
-    system_message = """You are a Vision Language Model specialized in Salient Object Ranking. Detect all salient objects in the user's image and rank them from the most to least salient. Output results in this strict JSON format: {"results": [{"rank": 1,"category": "object_name", "bbox": {"x1": x1:int, "y1": y1:int, "x2": x2:int, "y2": y2:int}}, ..., {"rank": N, "category": "background","bbox": {"x1": 0, "y1": 0, "x2": width, "y2": height}}]}
-    Requirements:
-    1. Final entry must be background object with its bounding box covering the full image (x1=0, y1=0, x2=width, y2=height).
-    2. Bounding boxes use absolute pixel coordinates (x1,y1 = top-left, x2,y2 = bottom-right).
-    3. Images typically contain only a few salient objects, with a maximum limit of 10 per image.
-    4. Output must be pure JSON with no additional text."""
-    # The maximum number of salient objects per image is limited to 10.
-    return [
-        {
-            "role": "system",
-            "content": [{"type": "text", "text": system_message}],
-        },
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "image",
-                    "image": sample["image"],
-                },
-                {
-                    "type": "text",
-                    "text": f"This is the input image with height = {sample['input_height']} and width = {sample['input_width']}."
-                },
-            ],
-        },
-        {
-            "role": "assistant",
-            "content": [{"type": "text", "text": sample["label"]}],
-        },
-    ]
-
-
 def generate_text_from_sample(model, processor, sample, max_new_tokens=1024, device="cuda"):
     text_input = processor.apply_chat_template(
-        sample[0:-1], tokenize=False, add_generation_prompt=True
+        sample, tokenize=False, add_generation_prompt=True
     )
     image_inputs, _ = process_vision_info(sample)
     
@@ -68,17 +38,17 @@ def generate_text_from_sample(model, processor, sample, max_new_tokens=1024, dev
     ).to(
         device
     )
+
+    start_time = time.time()
     generated_ids = model.generate(**model_inputs, max_new_tokens=max_new_tokens) ## num_beams=1
+    print("Generation time:", time.time() - start_time)
 
     trimmed_generated_ids = [out_ids[len(in_ids) :] for in_ids, out_ids in zip(model_inputs.input_ids, generated_ids)]
     output_text = processor.batch_decode(
         trimmed_generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False
     )
 
-    input_height = int((model_inputs['image_grid_thw'][0][1]*14).cpu())
-    input_width = int((model_inputs['image_grid_thw'][0][2]*14).cpu())
-
-    return output_text[0], (input_height, input_width) 
+    return output_text[0]
 
 if __name__=="__main__":
     cfg = get_config(["--evaluation"])
@@ -102,17 +72,35 @@ if __name__=="__main__":
     else:
         print(f"No adapter path is found. Load pretrained weights.")
 
-    ## Data
-    eval_dataset, test_dataset, train_dataset = load_psor_dataset(cfg)
+    # func = partial(collate_fn, processor=processor, add_generation_prompt=True)
+    evaluator = Evaluator(cfg=cfg)
 
-    eval_dataloader = DataLoader(
-        eval_dataset,
-        batch_size=cfg.per_device_eval_batch_size,
-        collate_fn=partial(collate_fn, processor=processor, add_generation_prompt=True),
-        shuffle=False,
-        drop_last=False,
-    )
+    while True:
+        image_path = input("Image path:")
+        if os.path.exists(image_path):
+            image = Image.open(image_path).convert('RGB')
+        width, height = image.size
+        input_image = image.resize((cfg.input_width, cfg.input_height))
+        name = image_path.replace("\\", "/").split("/")[-1][0:-4]
+        
+        sample = format_data({
+            "image": input_image,
+            "input_width": cfg.input_width,
+            "input_height": cfg.input_height,
+            "label": "",
+        })
+        generated_text = generate_text_from_sample(model=model, processor=processor, sample=sample)
+        results = parse(generated_text)
 
-    callback = GenerationEvaluation(cfg=cfg)
-    results = callback.evaluate(model=model, processor=processor, eval_dataloader=eval_dataloader)
-    print(results)
+        evaluator.init()
+        evaluator.update({
+            "name": name,
+            "width": width,
+            "height": height,
+            "input_width": cfg.input_width,
+            "input_height": cfg.input_height,
+            "results": results["results"]
+        })
+        print(evaluator.average())
+
+

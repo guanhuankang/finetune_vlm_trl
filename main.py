@@ -11,7 +11,7 @@ from functools import partial
 from dataset import load_psor_dataset
 from utils import clear_memory, GPU_monitor, init_wandb
 from collate import collate_fn
-from callbacks import GenerationEvaluation
+from callbacks import GenerationEvaluationCallback
 
 def get_model(cfg):
     model_id = cfg.model_id
@@ -106,7 +106,7 @@ def train(cfg):
         peft_config=peft_config,
         processing_class=processor.tokenizer,
         compute_metrics=None,
-        callbacks=[GenerationEvaluation(cfg=cfg)],
+        callbacks=[GenerationEvaluationCallback(cfg=cfg)],
     )
     trainer.train()
     trainer.save_model(training_args.output_dir)
@@ -138,7 +138,7 @@ def test(cfg):
         drop_last=False,
     )
 
-    gen_eval = GenerationEvaluation(cfg=cfg)
+    gen_eval = GenerationEvaluationCallback(cfg=cfg)
 
     gen_eval.evaluate(model, processor, test_dataloader)
 
