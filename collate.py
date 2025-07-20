@@ -2,11 +2,11 @@ from transformers import Qwen2VLForConditionalGeneration, Qwen2VLProcessor
 from qwen_vl_utils import process_vision_info
 
 
-def collate_fn(samples, processor):
+def collate_fn(samples, processor, add_generation_prompt):
     chat_contents = [sample["chat_content"] for sample in samples]
 
     texts = [
-        processor.apply_chat_template(chat, tokenize=False, add_generation_prompt=False) for chat in chat_contents
+        processor.apply_chat_template(chat, tokenize=False, add_generation_prompt=add_generation_prompt) for chat in chat_contents
     ]
 
     image_inputs = [process_vision_info(chat)[0] for chat in chat_contents]

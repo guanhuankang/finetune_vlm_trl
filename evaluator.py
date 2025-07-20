@@ -10,6 +10,7 @@ class Evaluator:
         categories_path = cfg.categories_path
         image_folder_path = cfg.image_folder_path
         val_split = cfg.val_test_train_split.split(";")[0]
+        evaluation = cfg.evaluation
 
         start, length = tuple(map(int, val_split.split(",")))
 
@@ -32,6 +33,8 @@ class Evaluator:
             )
             for data in dataset
         ]
+
+        self.evaluation = evaluation
 
         self.init()
 
@@ -75,7 +78,7 @@ class Evaluator:
 
         generated_lst = sorted(x["results"], key=lambda obj: obj["rank"])
 
-        if len(self) <= 3:
+        if len(self) <= 3 or self.evaluation:
             vis = wandb.Image(graph.visualize(generated_lst), caption=name)
             wandb.log({name: vis})
 

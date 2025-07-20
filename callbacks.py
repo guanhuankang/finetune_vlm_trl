@@ -28,7 +28,7 @@ class GenerationEvaluation(TrainerCallback):
 
             model_inputs = batch.to("cuda")
 
-            generated_ids = model.generate(**model_inputs, max_new_tokens=1024, num_beams=1)
+            generated_ids = model.generate(**model_inputs, max_new_tokens=1024)
 
             generated_ids = trim(model_inputs.input_ids, generated_ids)
             generated_texts = processor.batch_decode(

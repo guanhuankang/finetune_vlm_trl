@@ -108,7 +108,7 @@ if __name__=="__main__":
     eval_dataloader = DataLoader(
         eval_dataset,
         batch_size=cfg.per_device_eval_batch_size,
-        collate_fn=partial(collate_fn, processor=processor),
+        collate_fn=partial(collate_fn, processor=processor, add_generation_prompt=True),
         shuffle=False,
         drop_last=False,
     )
