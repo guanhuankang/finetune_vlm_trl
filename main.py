@@ -145,7 +145,7 @@ def test(cfg):
     _, test_dataset, _ = load_psor_dataset(cfg=cfg)
     eval_dataloader = DataLoader(
         test_dataset,
-        batch_size=1,
+        batch_size=cfg.per_device_eval_batch_size,
         collate_fn=partial(collate_fn, processor=processor),
         shuffle=False,
         drop_last=False,
