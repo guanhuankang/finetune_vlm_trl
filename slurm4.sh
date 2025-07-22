@@ -12,4 +12,4 @@
 ### Shell Here ###
 cd /home/huankguan2/scratch/finetune_vlm_trl
 source .venv/bin/activate
-python main.py --num_gpus 4 --gradient_accumulation_steps 1
+python main.py --num_gpus 4 --gradient_accumulation_steps 1 --quick_eval
