@@ -1,54 +1,70 @@
-from transformers import TrainerCallback, AutoProcessor
+from transformers import TrainerCallback
 import wandb
-import tqdm
-from llm_json import json
-from utils import clear_memory
+from tqdm import tqdm
+
 from evaluator import Evaluator
+from generation import Generation
+from visualization import visualize
+from utils import clear_memory
 
-class GenerationEvaluation:
-    def __init__(self, cfg):
-        super().__init__()
-        self.evaluator = Evaluator(cfg=cfg)
-    
-    def evaluate(self, model, processor, eval_dataloader):
-        trim = lambda input_ids, output_ids: [ out_ids[len(in_ids)::] for in_ids, out_ids in zip(input_ids, output_ids)]
-        def parse(s):
-            try:
-                results = json.loads(s)
-                assert isinstance(results["results"], list)
-                return results
-            except:
-                return {"results": []}
-        
-        self.evaluator.init()
-        for index, batch in tqdm.tqdm(enumerate(eval_dataloader)):
-            batch_info = batch.info
-            batch.pop("info")
-
-            model_inputs = batch.to("cuda")
-
-            generated_ids = model.generate(**model_inputs, max_new_tokens=1024)
-
-            generated_ids = trim(model_inputs.input_ids, generated_ids)
-            generated_texts = processor.batch_decode(
-                generated_ids,
-                skip_special_tokens=True,
-                clean_up_tokenization_spaces=False,
-            )
-            
-            for text, info in zip(generated_texts, batch_info):
-                self.evaluator.update(info | parse(text))
-
-        return self.evaluator.average()
 
 class GenerationEvaluationCallback(TrainerCallback):
     def __init__(self, cfg):
         super().__init__()
-        self.ge = GenerationEvaluation(cfg=cfg)
-    
-    def on_evaluate(self, args, state, control, **kwargs):
-        clear_memory()
+        self.evaluator = Evaluator(cfg=cfg)
+        self.generation = Generation(cfg=cfg)
+        self.cfg = cfg
 
+    def evaluate(self, model, processor, eval_dataloader):
+        input_width = self.cfg.input_width
+        input_height = self.cfg.input_height
+
+        with tqdm(total=len(eval_dataloader), desc="Evaluation") as bar:
+            self.evaluator.init()
+            for index, batch in enumerate(eval_dataloader):
+
+                outputs = self.generation.generate(
+                    model=model, processor=processor, batch=batch
+                )
+                for name, width, height, out in zip(
+                    batch.names, batch.widths, batch.heights, outputs
+                ):
+                    generated_lst = self.evaluator.update(
+                        name=name,
+                        width=width,
+                        height=height,
+                        input_width=input_width,
+                        input_height=input_height,
+                        results=out["results"],
+                    )
+
+                    if (
+                        index <= self.cfg.n_image_visualization or self.cfg.evaluation
+                    ):  ## Visualization
+                        image = self.evaluator.get_image(name=name)
+                        image = wandb.Image(
+                            visualize(image=image, generated_lst=generated_lst),
+                            caption=name,
+                        )
+                        wandb.log({name: image})
+                        wandb.log(
+                            {
+                                name: wandb.Table(
+                                    columns=["generated_text", "results"],
+                                    data=[[str(out["generated_text"]), str(out["results"])]],
+                                )
+                            }
+                        )
+
+                bar.update()
+
+            log_metrics = self.evaluator.average()
+
+            wandb.log(log_metrics)
+
+            print(log_metrics)
+
+    def on_evaluate(self, args, state, control, **kwargs):
         if not state.is_local_process_zero:
             return control
         else:
@@ -56,8 +72,6 @@ class GenerationEvaluationCallback(TrainerCallback):
             processor = kwargs["processing_class"]
             eval_dataloader = kwargs["eval_dataloader"]
 
-            log_metrics = self.ge.evaluate(model, processor, eval_dataloader)
-            wandb.log(log_metrics)
-            print(log_metrics)
-            
+            self.evaluate(model, processor, eval_dataloader)
+
             return control

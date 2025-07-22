@@ -37,7 +37,7 @@ def get_model(cfg):
 def train(cfg):
     # Configure training arguments
     training_args = SFTConfig(
-        output_dir=cfg.output_dir,  # Directory to save the model
+        output_dir=os.path.join(cfg.output_dir, cfg.run_name),  # Directory to save the model
         num_train_epochs=cfg.num_train_epochs,  # Number of training epochs
         per_device_train_batch_size=cfg.per_device_train_batch_size,  # Batch size for training
         per_device_eval_batch_size=cfg.per_device_eval_batch_size,  # Batch size for evaluation
@@ -119,8 +119,8 @@ def test(cfg):
 
     model, processor = get_model(cfg=cfg)
 
-    if os.path.isdir(cfg.runs_dir):
-        adapter_path = cfg.runs_dir
+    adapter_path = os.path.join(cfg.runs_dir, cfg.run_name)
+    if os.path.isdir(adapter_path):
         model.load_adapter(adapter_path)
         print(f"Load adapter from {adapter_path}")
     else:

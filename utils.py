@@ -38,7 +38,7 @@ def init_wandb(cfg, training_args):
     wandb.init(
         project=cfg.project,
         id=cfg.run_id,
-        name=cfg.run_id,
+        name=cfg.run_name,
         config=training_args,
         mode=cfg.wandb_mode,
     )

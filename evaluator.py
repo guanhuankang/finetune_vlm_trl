@@ -1,23 +1,136 @@
 import os
 import json
-import wandb
-from psorgraph import PSORGraph, BBox
+import numpy as np
+from PIL import Image
+
+def enc(lst):
+    return ",".join(list(map(str, lst)))
+
+
+class BBox:
+    def __init__(self, bbox: dict):
+        self.x1 = bbox["x1"]
+        self.y1 = bbox["y1"]
+        self.x2 = bbox["x2"]
+        self.y2 = bbox["y2"]
+
+    def intersection(self, bbox):
+        x1 = max(self.x1, bbox.x1)
+        y1 = max(self.y1, bbox.y1)
+        x2 = min(self.x2, bbox.x2)
+        y2 = min(self.y2, bbox.y2)
+        return BBox({"x1": x1, "y1": y1, "x2": x2, "y2": y2})
+
+    def area(self):
+        w = max(self.x2 - self.x1, 0)
+        h = max(self.y2 - self.y1, 0)
+        return h * w
+
+    def iou(self, bbox):
+        s = self.intersection(bbox).area()
+        u = self.area() + bbox.area() - s
+        return s / u
+
+    def scale(self, r_x, r_y):
+        self.x1 = self.x1 * r_x
+        self.y1 = self.y1 * r_y
+        self.x2 = self.x2 * r_x
+        self.y2 = self.y2 * r_y
+
+    def __str__(self):
+        return str({"x1": self.x1, "y1": self.y1, "x2": self.x2, "y2": self.y2})
+
+
+class COCOAnno:
+    def __init__(self, anno: dict, categories=None):
+        x, y, w, h = anno["box"]
+        self.bbox = BBox({"x1": x, "y1": y, "x2": x + w, "y2": y + h})
+
+        self.category = (
+            anno["category_id"]
+            if categories == None
+            else categories[anno["category_id"]]
+        )
+
+    def __str__(self):
+        return str({"category": self.category, "bbox": str(self.bbox)})
+
+
+class PSORGraph:
+    def __init__(self, data, categories=None):
+        table = dict((enc(x["condition"]), x) for x in data["psor_samples"])
+        annos = dict(
+            (i, COCOAnno(anno, categories))
+            for i, anno in enumerate(data["annotations"])
+        )
+
+        self.table = table
+        self.annos = annos
+        self.matched_threshold = 0.5
+        self.name = data["image"]
+        self.post_init()
+
+    def post_init(self):
+        if "" not in self.table:
+            self.table[""] = {
+                "condition": [],
+                "parent_weight": 1.0,
+                "max_reward": 1.0,
+                "optimal_index": 0,
+                "groundtruth": [
+                    {
+                        "anno_idx": "end",
+                        "weight": 1.0,
+                        "action_reward": 1.0,
+                        "max_reward": 1.0,
+                        "cumulative_reward": 1.0,
+                    }
+                ],
+            }
+        self.max_reward = self.table[""]["max_reward"]
+
+    def match(self, obj, state: list):
+        """obj: {"bbox": BBox, "category": str}"""
+        node_data = self.table[enc(state)]
+        children_data = node_data["groundtruth"]
+
+        iou_scores = []
+        for c in children_data:
+            anno_idx = c["anno_idx"]
+            if anno_idx == "end":
+                score = 1.0 if obj["category"] == "background" else 0.0
+            else:
+                score = self.annos[anno_idx].bbox.iou(obj["bbox"])
+            iou_scores.append(score)
+
+        matched_index = np.argmax(iou_scores)
+
+        if iou_scores[matched_index] >= self.matched_threshold:
+            return {
+                "anno_idx": children_data[matched_index]["anno_idx"],
+                "iou": iou_scores[matched_index],
+                "action_reward": children_data[matched_index]["action_reward"],
+                "max_action_reward": children_data[node_data["optimal_index"]][
+                    "action_reward"
+                ],
+            }
+        else:
+            return {
+                "anno_idx": None,
+                "iou": 0.0,
+                "action_reward": 0.0,
+                "max_action_reward": children_data[node_data["optimal_index"]][
+                    "action_reward"
+                ],
+            }
 
 
 class Evaluator:
     def __init__(self, cfg):
-        dataset_path = cfg.dataset_path
-        categories_path = cfg.categories_path
-        image_folder_path = cfg.image_folder_path
-        val_split = cfg.val_test_train_split.split(";")[0]
-        evaluation = cfg.evaluation
+        with open(cfg.dataset_path, "r") as f:
+            dataset = json.load(f)
 
-        start, length = tuple(map(int, val_split.split(",")))
-
-        with open(dataset_path, "r") as f:
-            dataset = json.load(f)[start : start + length]
-
-        with open(categories_path, "r") as f:
+        with open(cfg.categories_path, "r") as f:
             categories = json.load(f)
             categories = dict((x["id"], x["name"]) for x in categories)
 
@@ -25,16 +138,19 @@ class Evaluator:
             (x["image"], i) for i, x in enumerate(dataset)
         )
 
-        self.graphs = [
-            PSORGraph(
-                data=data,
-                categories=categories,
-                image_path=os.path.join(image_folder_path, data["image"] + ".jpg"),
-            )
+        self.graphs = [PSORGraph(data=data, categories=categories)
+                       for data in dataset]
+        self.infos = [
+            {
+                "name": data["image"],
+                "width": data["width"],
+                "height": data["height"],
+                "image_path": os.path.join(cfg.image_folder_path, data["image"]+".jpg")
+            }
             for data in dataset
         ]
 
-        self.evaluation = evaluation
+        self.evaluation = cfg.evaluation
 
         self.init()
 
@@ -44,19 +160,15 @@ class Evaluator:
     def __len__(self):
         return len(self.results)
 
-    def update(self, x: dict):
-        """x is a dict with keys:
-        "name":
-        "width":
-        "height":
-        "input_width":
-        "input_height":
-        "results": list of detected objects
-            {"rank": 1,"category": "object_name", "bbox": {"x1": 0, "y1": 0, "x2": 0, "y2": 0}}
-        """
-        name = x["name"]
-        graph = self.graphs[self.name_map_to_dataset_index[name]]
+    def get_info(self, name):
+        index = self.name_map_to_dataset_index[name]
+        return self.infos[index]
 
+    def get_image(self, name):
+        info = self.get_info(name)
+        return Image.open(info["image_path"]).convert('RGB')
+
+    def calc(self, generated_lst, graph):
         state = []
         scores = {
             "top1_advantage": 0.0,
@@ -66,21 +178,6 @@ class Evaluator:
         }
         sum_action_rewards = 0.0
         sum_iou_aware_action_rewards = 0.0
-        ratio_x = x["width"] / x["input_width"]
-        ratio_y = x["height"] / x["input_height"]
-
-        generated_lst = []
-        for obj in x["results"]:
-            bbox = BBox(obj["bbox"])
-            bbox.scale(r_x=ratio_x, r_y=ratio_y)
-            obj["bbox"] = bbox
-            generated_lst.append(obj)
-
-        generated_lst = sorted(x["results"], key=lambda obj: obj["rank"])
-
-        if len(self) <= 3 or self.evaluation:
-            vis = wandb.Image(graph.visualize(generated_lst), caption=name)
-            wandb.log({name: vis})
 
         for obj in generated_lst:
             y = graph.match(obj, state)
@@ -101,7 +198,39 @@ class Evaluator:
             sum_action_rewards + 1e-6
         )
 
-        self.results.append(scores)
+        return scores
+
+    def update(
+        self,
+        name: str,
+        width: int,
+        height: int,
+        input_width: int,
+        input_height: int,
+        results: dict,
+    ):
+        """
+        "results": list of detected objects
+            {"rank": 1,"category": "object_name", "bbox": {"x1": 0, "y1": 0, "x2": 0, "y2": 0}}
+        """
+        generated_lst = []
+        for obj in results["results"]:
+            bbox = BBox(obj["bbox"])
+            bbox.scale(r_x = width / input_width, r_y = height / input_height)
+            generated_lst.append({
+                "rank": obj["rank"],
+                "category": obj["category"],
+                "bbox": bbox
+            })
+
+        generated_lst.sort(key=lambda obj: obj["rank"])
+
+        if name in self.name_map_to_dataset_index:
+            graph = self.graphs[self.name_map_to_dataset_index[name]]
+            self.results.append(self.calc(generated_lst, graph))
+            return generated_lst
+        else:
+            return generated_lst
 
     def sum(self):
         ret = {}
@@ -111,8 +240,8 @@ class Evaluator:
         return ret | {"count": len(self)}
 
     def average(self):
-        n = len(self.results)
+        n = len(self)
         ret = self.sum()
         for k, v in ret.items():
             ret[k] = v / n
-        return ret | {"count": len(self)}
+        return ret | {"count": n}

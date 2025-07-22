@@ -18,7 +18,18 @@ source .venv/bin/activate && python main.py
 We use wandb to record training log.
 
 
+## Evaluation
+
 Evaluation Mode:
 ```shell
 source .venv/bin/activate && python main.py --evaluation --run_id RUN_ID
 ```
+
+## Inference
+```shell
+source .venv/bin/activate && python tty_demo.py --run_name run_20250719_230201
+```
+image_path = `assets/dataset/images/000000386912.jpg`, `assets/dataset/images/000000087038.jpg`
+## Tech Pannel
+
+PSORDataset / EvalImageHandler -> collate_fn -> Model (Generation) -> generated_text/results -> Evaluator, Visualization

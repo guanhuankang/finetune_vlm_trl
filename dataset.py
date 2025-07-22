@@ -36,18 +36,12 @@ def format_data(sample):
         },
     ]
 
-
 class PSORDataset(Dataset):
-    def __init__(
-        self,
-        dataset_path,
-        image_folder_path,
-        categories_path,
-        split_start,
-        split_length,
-        split,
-        input_resolution=(1024, 1024),
-    ):
+    def __init__(self, cfg, split_index:str):
+        dataset_path = cfg.dataset_path
+        categories_path = cfg.categories_path
+        split_start, split_length = tuple(map(int, split_index.split(",")))
+
         with open(dataset_path, "r") as f:
             dataset = json.load(f)[split_start: split_start + split_length]
 
@@ -55,29 +49,32 @@ class PSORDataset(Dataset):
             categories = json.load(f)
             categories = dict((x["id"], x["name"]) for x in categories)
 
+        self.cfg = cfg
         self.categories = categories
-        self.image_folder_path = image_folder_path
-        self.input_resolution = input_resolution
-        # self.dataset = list(filter(lambda s: s["is_salient"],[self.preprocess_psor_sample(x) for x in dataset]))
         self.dataset = [self.preprocess_psor_sample(x) for x in dataset]
-        self.split = split
 
     def __getitem__(self, index):
         sample = self.dataset[index]
+        input_width = sample["input_width"]
+        input_height = sample["input_height"]
+        image = Image.open(
+            os.path.join(self.cfg.image_folder_path, sample["name"] + ".jpg")
+        ).convert('RGB')
+        
         chat_content = format_data({
-            "image": Image.open(
-                os.path.join(self.image_folder_path, sample["name"] + ".jpg")
-            ).resize(self.input_resolution),
+            "image": image.resize((input_width, input_height)),
             "label": json.dumps({"results": sample["sor"]}),
-            "input_width": sample["input_width"],
-            "input_height": sample["input_height"],
+            "input_width": input_width,
+            "input_height": input_height,
         })
 
-        if self.split != "train":
+        if self.cfg.evaluation:
             sample["chat_content"] = chat_content[0:-1]
         else:
             sample["chat_content"] = chat_content
-
+        
+        sample["image"] = image
+        
         return sample
 
     def __len__(self):
@@ -87,8 +84,8 @@ class PSORDataset(Dataset):
         name = raw_sample["image"]
         height = raw_sample["height"]
         width = raw_sample["width"]
-        input_width = self.input_resolution[0]
-        input_height = self.input_resolution[1]
+        input_width = self.cfg.input_width
+        input_height = self.cfg.input_height
 
         table = dict(
             (",".join(list(map(str, x["condition"]))), x)
@@ -151,42 +148,38 @@ class PSORDataset(Dataset):
 
         return sample
 
+class EvalImageHandler:
+    def __init__(self, cfg):
+        self.cfg = cfg
+    
+    def handle(self, image_path):
+        name = os.path.splitext(os.path.basename(image_path))[0]
+        input_width = self.cfg.input_width
+        input_height = self.cfg.input_height
+
+        image = Image.open(image_path).convert("RGB")
+        input_image = image.resize((input_width, input_height))
+
+        width, height = image.size
+        return {
+            "name": name,
+            "width": width,
+            "height": height,
+            "input_width": input_width,
+            "input_height": input_height,
+            "image": image,  ## original image
+            "chat_content": format_data({
+                "image": input_image,
+                "input_width": input_width,
+                "input_height": input_height,
+                "label": ""
+            })[0:-1] ## remove assistant
+        }
 
 def load_psor_dataset(cfg):
-    dataset_path = cfg.dataset_path
-    categories_path = cfg.categories_path
-    image_folder_path = cfg.image_folder_path
-    split_indexs = cfg.val_test_train_split
-
-    si = tuple(map(int, split_indexs.replace(";", ",").split(",")))
-
-    eval_dataset = PSORDataset(
-        dataset_path=dataset_path,
-        image_folder_path=image_folder_path,
-        categories_path=categories_path,
-        split_start=si[0],
-        split_length=si[1],
-        split="val",
-        input_resolution=(cfg.input_width, cfg.input_height),
-    )
-    test_dataset = PSORDataset(
-        dataset_path=dataset_path,
-        image_folder_path=image_folder_path,
-        categories_path=categories_path,
-        split_start=si[2],
-        split_length=si[3],
-        split="test",
-        input_resolution=(cfg.input_width, cfg.input_height),
-    )
-    train_dataset = PSORDataset(
-        dataset_path=dataset_path,
-        image_folder_path=image_folder_path,
-        categories_path=categories_path,
-        split_start=si[4],
-        split_length=si[5],
-        split="train",
-        input_resolution=(cfg.input_width, cfg.input_height),
-    )
+    eval_dataset = PSORDataset(cfg, split_index=cfg.val_split)
+    test_dataset = PSORDataset(cfg, split_index=cfg.test_split)
+    train_dataset = PSORDataset(cfg, split_index=cfg.train_split)
 
     return eval_dataset, test_dataset, train_dataset
 
@@ -196,7 +189,7 @@ if __name__ == "__main__":
 
     cfg = get_config()
 
-    train_dataset, eval_dataset, test_dataset = load_psor_dataset(cfg=cfg)
+    eval_dataset, test_dataset, train_dataset = load_psor_dataset(cfg=cfg)
 
     print(f"Train dataset size: {len(train_dataset)}")
     print(f"Eval dataset size: {len(eval_dataset)}")
@@ -206,3 +199,7 @@ if __name__ == "__main__":
     # Print the first training sample
     print("Example train sample:", train_dataset[0])
     # print("Example eval sample:", eval_dataset[0])    # Print the first evaluation sample
+
+    handler = EvalImageHandler(cfg=cfg)
+    sample = handler.handle(image_path="assets/dataset/images/000000386912.jpg")
+    print(sample)

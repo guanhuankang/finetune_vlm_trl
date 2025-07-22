@@ -4,7 +4,6 @@ from PIL import Image, ImageDraw
 def enc(lst):
     return ",".join(list(map(str, lst)))
 
-
 class BBox:
     def __init__(self, bbox: dict):
         self.x1 = bbox["x1"]
@@ -49,7 +48,7 @@ class COCOAnno:
         return str({"category": self.category, "bbox": str(self.bbox)})
 
 class PSORGraph:
-    def __init__(self, data, categories=None, image_path=None):
+    def __init__(self, data, categories=None):
         table = dict((enc(x["condition"]), x) for x in data["psor_samples"])
         annos = dict((i, COCOAnno(anno, categories)) for i, anno in enumerate(data["annotations"]))
 
@@ -58,6 +57,11 @@ class PSORGraph:
         self.table = table
         self.annos = annos
         self.image_path = image_path
+        self.info = {
+            "name": data["image"],
+            "width": data["width"],
+            "height": data["height"]
+        }
         self.post_init()
 
     def post_init(self):
@@ -82,6 +86,7 @@ class PSORGraph:
     def match(self, obj, state: list):
         node_data = self.table[enc(state)]
         children_data = node_data["groundtruth"]
+        max_action_reward = max([c["action_reward"] for c in children_data])
 
         iou_scores = []
         for c in children_data:
@@ -99,18 +104,14 @@ class PSORGraph:
                 "anno_idx": children_data[matched_index]["anno_idx"],
                 "iou": iou_scores[matched_index],
                 "action_reward": children_data[matched_index]["action_reward"],
-                "max_action_reward": children_data[node_data["optimal_index"]][
-                    "action_reward"
-                ],
+                "max_action_reward": max_action_reward,
             }
         else:
             return {
                 "anno_idx": None,
                 "iou": 0.0,
                 "action_reward": 0.0,
-                "max_action_reward": children_data[node_data["optimal_index"]][
-                    "action_reward"
-                ],
+                "max_action_reward": max_action_reward,
             }
 
     def visualize(self, generated_lst):
