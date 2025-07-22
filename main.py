@@ -105,8 +105,8 @@ def train(cfg):
         data_collator=partial(collate_fn, processor=processor, add_generation_prompt=False),
         peft_config=peft_config,
         processing_class=processor.tokenizer,
-        compute_metrics=None,
-        callbacks=[GenerationEvaluationCallback(cfg=cfg)],
+        # compute_metrics=None,
+        callbacks=[] if cfg.quick_eval else [GenerationEvaluationCallback(cfg=cfg)],
     )
     trainer.train()
     trainer.save_model(training_args.output_dir)
