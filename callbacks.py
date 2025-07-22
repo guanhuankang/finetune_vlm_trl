@@ -46,10 +46,10 @@ class GenerationEvaluationCallback(TrainerCallback):
                             visualize(image=image, generated_lst=generated_lst),
                             caption=name,
                         )
-                        wandb.log({name: image})
+                        wandb.log({"image_"+name: image})
                         wandb.log(
                             {
-                                name: wandb.Table(
+                                "table_"+name: wandb.Table(
                                     columns=["generated_text", "results"],
                                     data=[[str(out["generated_text"]), str(out["results"])]],
                                 )

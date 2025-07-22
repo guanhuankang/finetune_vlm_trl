@@ -15,7 +15,7 @@ python main.py \
     --save_steps 10 \
     --wandb_mode online \
     --project PSORLocal \
-    # --evaluation \
+    --evaluation 
     # --run_name run_20250719_230201
     
     
