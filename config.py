@@ -1,12 +1,13 @@
 import argparse
 import sys
 import secrets
+import time
 
 
 class Config:
     def __init__(self, args=[]):
-        # ctime = time.strftime("%Y%m%d_%H%M%S")
-        run_name = secrets.token_hex(4)
+        # ctime = time.strftime("%Y%m%d-%H%M%S")
+        run_name = secrets.token_hex(2)
 
         parser = argparse.ArgumentParser(
             description="Configuration for the model training and evaluation."
@@ -15,8 +16,9 @@ class Config:
         # Project and Run
         parser.add_argument("--project", type=str, default="PSOR")
         parser.add_argument("--run_name", type=str, default=run_name)
-        parser.add_argument("--output_dir", type=str, default="output/")
-        parser.add_argument("--runs_dir", type=str, default="runs/")
+        parser.add_argument("--output_dir", type=str, default="output")
+        parser.add_argument("--runs_dir", type=str, default="runs")
+        parser.add_argument("--checkpoint_name", type=str, default="")
         parser.add_argument(
             "--evaluation", action="store_true", help="Evaluation Mode")
 
@@ -54,7 +56,7 @@ class Config:
             "--image_folder_path", type=str, default="assets/dataset/images"
         )
         parser.add_argument(
-            "--val_split", type=str, default="0,200", help="start,length"
+            "--val_split", type=str, default="0,100", help="start,length"
         )
         parser.add_argument(
             "--test_split", type=str, default="0,5000", help="start,length"
@@ -64,7 +66,7 @@ class Config:
         )
 
         # Visualization
-        parser.add_argument("--n_image_visualization", type=int, default=10)
+        parser.add_argument("--n_image_visualization", type=int, default=100)
 
         args = parser.parse_args(args=args)
         for key, value in vars(args).items():
@@ -72,10 +74,10 @@ class Config:
 
 
 def get_config(args=[]):
+    ctime = time.strftime("%Y%m%d-%H%M%S")
     cfg = Config(args + sys.argv[1::])
-    cfg.run_id = f"{cfg.run_name}-{secrets.token_hex(2)}"
+    cfg.run_id = f"{cfg.run_name}-{ctime}"
     return cfg
-
 
 if __name__ == "__main__":
     config = get_config()

@@ -23,7 +23,7 @@ if __name__ == "__main__":
 
     processor = Qwen2VLProcessor.from_pretrained(model_id)
 
-    adapter_path = os.path.join(cfg.runs_dir, cfg.run_name)
+    adapter_path = os.path.join(cfg.runs_dir, cfg.run_id, cfg.checkpoint_name)
     if os.path.isdir(adapter_path):
         model.load_adapter(adapter_path)
         print(f"Load adapter from {adapter_path}")
@@ -35,24 +35,9 @@ if __name__ == "__main__":
     eval_image_handler = EvalImageHandler(cfg=cfg)
 
     while True:
-        image_path = input("Image path:")
+        image_path = input("Image path:") or "assets/dataset/images/000000386912.jpg"
 
         sample = eval_image_handler.handle(image_path=image_path)
-
-        # custome start
-        enable_system_prompt = input("enable_system_prompt? y/[n]: ").strip() == "y"
-        print(enable_system_prompt)
-
-        default_instruction = sample["chat_content"][1]["content"][-1]["text"]
-        user_instruction = input(f"User instructions (default: {default_instruction}): ")
-        user_instruction = user_instruction if user_instruction.strip() else default_instruction
-
-        sample["chat_content"][1]["content"][-1]["text"] = (
-            user_instruction if user_instruction.strip() else default_instruction
-        )
-
-        print(user_instruction)
-        # custom end
 
         batch = collate_fn(
             samples=[sample], processor=processor, add_generation_prompt=True

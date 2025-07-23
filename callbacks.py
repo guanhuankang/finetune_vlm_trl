@@ -38,23 +38,20 @@ class GenerationEvaluationCallback(TrainerCallback):
                         results=out["results"],
                     )
 
-                    if (
-                        index <= self.cfg.n_image_visualization or self.cfg.evaluation
-                    ):  ## Visualization
-                        image = self.evaluator.get_image(name=name)
-                        image = wandb.Image(
-                            visualize(image=image, generated_lst=generated_lst),
-                            caption=name,
-                        )
-                        wandb.log({"image_"+name: image})
-                        wandb.log(
-                            {
-                                "table_"+name: wandb.Table(
-                                    columns=["generated_text", "results"],
-                                    data=[[str(out["generated_text"]), str(out["results"])]],
-                                )
-                            }
-                        )
+                    image = self.evaluator.get_image(name=name)
+                    image = wandb.Image(
+                        visualize(image=image, generated_lst=generated_lst),
+                        caption=name,
+                    )
+                    wandb.log({"image_"+name: image})
+                    wandb.log(
+                        {
+                            "table_"+name: wandb.Table(
+                                columns=["generated_text", "results"],
+                                data=[[str(out["generated_text"]), str(out["results"])]],
+                            )
+                        }
+                    )
 
                 bar.update()
 
