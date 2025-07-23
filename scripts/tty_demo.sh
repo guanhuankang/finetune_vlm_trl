@@ -3,5 +3,5 @@
 source .venv/bin/activate
 
 python tty_demo.py \
-    --run_name run_20250719_230201 \
+    --run_name 9f7020be \
     --wandb_mode "offline"
