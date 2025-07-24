@@ -37,7 +37,7 @@ def format_data(sample):
     ]
 
 class PSORDataset(Dataset):
-    def __init__(self, cfg, split_index:str):
+    def __init__(self, cfg, split_index:str, split):
         dataset_path = cfg.dataset_path
         categories_path = cfg.categories_path
         split_start, split_length = tuple(map(int, split_index.split(",")))
@@ -51,6 +51,7 @@ class PSORDataset(Dataset):
 
         self.cfg = cfg
         self.categories = categories
+        self.split = split
         self.dataset = [self.preprocess_psor_sample(x) for x in dataset]
 
     def __getitem__(self, index):
@@ -68,7 +69,7 @@ class PSORDataset(Dataset):
             "input_height": input_height,
         })
 
-        if self.cfg.evaluation:
+        if self.split != "train":
             sample["chat_content"] = chat_content[0:-1]
             sample["add_generation_prompt"] = True
         else:
@@ -179,9 +180,9 @@ class EvalImageHandler:
         }
 
 def load_psor_dataset(cfg):
-    eval_dataset = PSORDataset(cfg, split_index=cfg.val_split)
-    test_dataset = PSORDataset(cfg, split_index=cfg.test_split)
-    train_dataset = PSORDataset(cfg, split_index=cfg.train_split)
+    eval_dataset = PSORDataset(cfg, split_index=cfg.val_split, split="val")
+    test_dataset = PSORDataset(cfg, split_index=cfg.test_split, split="test")
+    train_dataset = PSORDataset(cfg, split_index=cfg.train_split, split="train")
 
     return eval_dataset, test_dataset, train_dataset
 
