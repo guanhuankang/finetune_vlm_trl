@@ -23,12 +23,12 @@ if __name__ == "__main__":
 
     processor = Qwen2VLProcessor.from_pretrained(model_id)
 
-    adapter_path = os.path.join(cfg.runs_dir, cfg.run_id, cfg.checkpoint_name)
+    adapter_path = os.path.join(cfg.runs_dir, cfg.run_name, cfg.checkpoint_name)
     if os.path.isdir(adapter_path):
         model.load_adapter(adapter_path)
         print(f"Load adapter from {adapter_path}")
     else:
-        print(f"No adapter path is found. Load pretrained weights.")
+        print(f"No adapter path is found. Load pretrained weights.", adapter_path)
 
     evaluator = Evaluator(cfg=cfg)
     generation = Generation(cfg=cfg)

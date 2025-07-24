@@ -6,8 +6,8 @@ import time
 
 class Config:
     def __init__(self, args=[]):
-        # ctime = time.strftime("%Y%m%d-%H%M%S")
-        run_name = secrets.token_hex(2)
+        ctime = time.strftime("%Y%m%d-%H%M%S")
+        run_name = secrets.token_hex(2) + "-" + ctime
 
         parser = argparse.ArgumentParser(
             description="Configuration for the model training and evaluation."
@@ -74,9 +74,9 @@ class Config:
 
 
 def get_config(args=[]):
-    ctime = time.strftime("%Y%m%d-%H%M%S")
+    # ctime = time.strftime("%Y%m%d-%H%M%S")
     cfg = Config(args + sys.argv[1::])
-    cfg.run_id = f"{cfg.run_name}-{ctime}"
+    cfg.run_id = cfg.run_name[0:4] + secrets.token_hex(2) + cfg.run_name[4::]
     return cfg
 
 if __name__ == "__main__":
