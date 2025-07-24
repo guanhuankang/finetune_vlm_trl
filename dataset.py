@@ -70,8 +70,10 @@ class PSORDataset(Dataset):
 
         if self.cfg.evaluation:
             sample["chat_content"] = chat_content[0:-1]
+            sample["add_generation_prompt"] = True
         else:
             sample["chat_content"] = chat_content
+            sample["add_generation_prompt"] = False
         
         sample["image"] = image
         

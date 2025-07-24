@@ -1,17 +1,17 @@
 from transformers import Qwen2VLProcessor
 from qwen_vl_utils import process_vision_info
 
-def collate_fn(samples, processor, add_generation_prompt):
-    chat_contents = [sample["chat_content"] for sample in samples]
+def collate_fn(samples, processor):
+    # chat_contents = [sample["chat_content"] for sample in samples]
 
     texts = [
         processor.apply_chat_template(
-            chat, tokenize=False, add_generation_prompt=add_generation_prompt
+            sample["chat_content"], tokenize=False, add_generation_prompt=sample["add_generation_prompt"]
         )
-        for chat in chat_contents
+        for sample in samples
     ]
 
-    image_inputs = [process_vision_info(chat)[0] for chat in chat_contents]
+    image_inputs = [process_vision_info(sample["chat_content"])[0] for sample in samples]
 
     batch = processor(
         text=texts, images=image_inputs, return_tensors="pt", padding=True

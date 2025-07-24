@@ -84,7 +84,7 @@ def train(cfg):
 
     init_wandb(cfg, training_args=training_args)
 
-    eval_dataset, test_dataset, train_dataset = load_psor_dataset(cfg=cfg)
+    eval_dataset, _, train_dataset = load_psor_dataset(cfg=cfg)
 
     model, processor = get_model(cfg=cfg)
 
@@ -102,7 +102,7 @@ def train(cfg):
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
-        data_collator=partial(collate_fn, processor=processor, add_generation_prompt=False),
+        data_collator=partial(collate_fn, processor=processor),
         peft_config=peft_config,
         processing_class=processor.tokenizer,
         # compute_metrics=None,
@@ -133,7 +133,7 @@ def test(cfg):
     test_dataloader = DataLoader(
         test_dataset,
         batch_size=cfg.per_device_eval_batch_size,
-        collate_fn=partial(collate_fn, processor=processor, add_generation_prompt=True),
+        collate_fn=partial(collate_fn, processor=processor),
         shuffle=False,
         drop_last=False,
     )
