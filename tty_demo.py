@@ -39,9 +39,7 @@ if __name__ == "__main__":
 
         sample = eval_image_handler.handle(image_path=image_path)
 
-        batch = collate_fn(
-            samples=[sample], processor=processor, add_generation_prompt=True
-        )
+        batch = collate_fn(samples=[sample], processor=processor)
 
         start_time = time.time()
         outputs = generation.generate(model=model, processor=processor, batch=batch)
@@ -58,8 +56,6 @@ if __name__ == "__main__":
             results=output["results"],
         )
 
-        print(evaluator.average())
-
         # visualization
         image = sample["image"]
         vis = {
@@ -67,6 +63,8 @@ if __name__ == "__main__":
             "image": visualize(image=image, generated_lst=generated_lst),
             "generated_text": output["generated_text"],
             "results": output["results"],
+            "evaluation": evaluator.average(),
+            "generated_lst": [(k, str(v)) for obj in generated_lst for k, v in obj.items()],
             "runtime": f"{end_time - start_time} sec",
         }
 

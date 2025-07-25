@@ -241,6 +241,9 @@ class Evaluator:
 
     def average(self):
         n = len(self)
+        if n==0:
+            return {"count": n}
+        
         ret = self.sum()
         for k, v in ret.items():
             ret[k] = v / n

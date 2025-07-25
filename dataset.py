@@ -171,6 +171,7 @@ class EvalImageHandler:
             "input_width": input_width,
             "input_height": input_height,
             "image": image,  ## original image
+            "add_generation_prompt": True,
             "chat_content": format_data({
                 "image": input_image,
                 "input_width": input_width,
