@@ -5,7 +5,6 @@ from tqdm import tqdm
 from evaluator import Evaluator
 from generation import Generation
 from visualization import visualize
-from utils import clear_memory
 
 
 class GenerationEvaluationCallback(TrainerCallback):
