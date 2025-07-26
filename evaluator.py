@@ -3,43 +3,10 @@ import json
 import numpy as np
 from PIL import Image
 
+from utils import BBox
+
 def enc(lst):
     return ",".join(list(map(str, lst)))
-
-
-class BBox:
-    def __init__(self, bbox: dict):
-        self.x1 = bbox["x1"]
-        self.y1 = bbox["y1"]
-        self.x2 = bbox["x2"]
-        self.y2 = bbox["y2"]
-
-    def intersection(self, bbox):
-        x1 = max(self.x1, bbox.x1)
-        y1 = max(self.y1, bbox.y1)
-        x2 = min(self.x2, bbox.x2)
-        y2 = min(self.y2, bbox.y2)
-        return BBox({"x1": x1, "y1": y1, "x2": x2, "y2": y2})
-
-    def area(self):
-        w = max(self.x2 - self.x1, 0)
-        h = max(self.y2 - self.y1, 0)
-        return h * w
-
-    def iou(self, bbox):
-        s = self.intersection(bbox).area()
-        u = self.area() + bbox.area() - s
-        return s / u
-
-    def scale(self, r_x, r_y):
-        self.x1 = self.x1 * r_x
-        self.y1 = self.y1 * r_y
-        self.x2 = self.x2 * r_x
-        self.y2 = self.y2 * r_y
-
-    def __str__(self):
-        return str({"x1": self.x1, "y1": self.y1, "x2": self.x2, "y2": self.y2})
-
 
 class COCOAnno:
     def __init__(self, anno: dict, categories=None):

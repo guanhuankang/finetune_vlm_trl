@@ -23,10 +23,10 @@ class Config:
             "--evaluation", action="store_true", help="Evaluation Mode")
 
         # Model
-        parser.add_argument("--model_id", type=str,
-                            default="assets/Qwen/Qwen2-VL-7B-Instruct")
         # parser.add_argument('--sam_checkpoint', type=str, default='assets/sam_vit_h_4b8939.pth')
-
+        # parser.add_argument("--model_id", type=str, default="assets/Qwen/Qwen2-VL-7B-Instruct")
+        parser.add_argument("--model_id", type=str, default="assets/Qwen/Qwen2.5-VL-3B-Instruct")
+        
         # Training parameters
         parser.add_argument("--num_train_epochs", type=int, default=2)
         parser.add_argument("--num_gpus", type=int, default=1)
