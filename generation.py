@@ -21,7 +21,7 @@ class Generation:
             "pixel_values": batch.pixel_values.to('cuda'),
             "image_grid_thw": batch.image_grid_thw.to("cuda"),
         }
-        generated_ids = model.generate(**model_inputs, max_new_tokens=1024)
+        generated_ids = model.generate(**model_inputs, max_new_tokens=2048)
         generated_ids = trim(model_inputs['input_ids'], generated_ids)
         
         print_texts = processor.batch_decode(

@@ -45,10 +45,13 @@ def init_wandb(cfg, training_args):
 
 class BBox:
     def __init__(self, bbox: dict):
-        self.x1 = bbox["x1"]
-        self.y1 = bbox["y1"]
-        self.x2 = bbox["x2"]
-        self.y2 = bbox["y2"]
+        if isinstance(bbox, dict):
+            self.x1 = bbox["x1"]
+            self.y1 = bbox["y1"]
+            self.x2 = bbox["x2"]
+            self.y2 = bbox["y2"]
+        elif isinstance(bbox, list):
+            self.x1, self.y1, self.x2, self.y2 = bbox
 
     def intersection(self, bbox):
         x1 = max(self.x1, bbox.x1)

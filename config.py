@@ -42,8 +42,8 @@ class Config:
         parser.add_argument("--save_steps", type=int, default=625)
         parser.add_argument("--wandb_mode", type=str, default="offline")
         parser.add_argument("--learning_rate", type=float, default=2e-5)
-        parser.add_argument("--input_width", type=int, default=1024)
-        parser.add_argument("--input_height", type=int, default=1024)
+        parser.add_argument("--input_width", type=int, default=1036)
+        parser.add_argument("--input_height", type=int, default=1036)
 
         # Dataset
         parser.add_argument(

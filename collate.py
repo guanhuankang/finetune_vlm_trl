@@ -21,12 +21,13 @@ def collate_fn(samples, processor):
     labels = batch["input_ids"].clone()
     labels[labels == processor.tokenizer.pad_token_id] = -100
 
-    if isinstance(processor, Qwen2VLProcessor):
-        image_tokens = [151652, 151653, 151655]
-    else:
-        image_tokens = [
-            processor.tokenizer.convert_tokens_to_ids(processor.image_token)
-        ]
+
+    vision_start_id = processor.tokenizer.convert_tokens_to_ids("<|vision_start|>")
+    vision_end_id = processor.tokenizer.convert_tokens_to_ids("<|vision_end|>")
+    image_pad_id = processor.tokenizer.convert_tokens_to_ids("<|image_pad|>")
+    # image_pad_id = processor.tokenizer.convert_tokens_to_ids(processor.image_token)
+    image_tokens = [vision_start_id, vision_end_id, image_pad_id]
+    # image_tokens = [151652, 151653, 151655]
 
     for image_token_id in image_tokens:
         labels[labels == image_token_id] = -100

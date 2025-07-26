@@ -3,15 +3,13 @@ import json
 from torch.utils.data import Dataset
 from PIL import Image
 
-
 def format_data(sample):
-    system_message = """You are a Vision Language Model specialized in Salient Object Ranking. Detect all salient objects in the user's image and rank them from the most to least salient. Output results in this strict JSON format: {"results": [{"rank": 1,"category": "object_name", "bbox": {"x1": x1:int, "y1": y1:int, "x2": x2:int, "y2": y2:int}}, ..., {"rank": N, "category": "background","bbox": {"x1": 0, "y1": 0, "x2": width, "y2": height}}]}
+    system_message = """You are a Vision Language Model (VLM) specialized in Salient Object Ranking, which models how human attention shifts among objects in a scene. Your task is to detect salient (visually conspicuous) objects in user's image, and rank them from most to least salient (1 = most attention-grabbing), then add the background as the final entry. Output results in this strict JSON format: {"results": [{"rank": 1,"category": "object_name", "bbox": {"x1": x1:int, "y1": y1:int, "x2": x2:int, "y2": y2:int}}, ..., {"rank": N, "category": "background","bbox": {"x1": 0, "y1": 0, "x2": width, "y2": height}}]}
     Requirements:
     1. Final entry must be background object with its bounding box covering the full image (x1=0, y1=0, x2=width, y2=height).
-    2. Bounding boxes use absolute pixel coordinates (x1,y1 = top-left, x2,y2 = bottom-right).
+    2. Bounding boxes use absolute pixel coordinates (x1,y1 = top-left, x2,y2 = bottom-right) in JSON format with keys x1,y1,x2,y2.
     3. Images typically contain only a few salient objects, with a maximum limit of 10 per image.
     4. Output must be pure JSON with no additional text."""
-    # The maximum number of salient objects per image is limited to 10.
     return [
         {
             "role": "system",
