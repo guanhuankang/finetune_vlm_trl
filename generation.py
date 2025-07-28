@@ -1,9 +1,9 @@
 from llm_json import json
 
 class Generation:
-    def __init__(self, cfg):
+    def __init__(self, config):
         super().__init__()
-        self.cfg = cfg
+        self.config = config
     
     def try_parse_json(self, s):
         try:

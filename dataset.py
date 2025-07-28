@@ -35,9 +35,9 @@ def format_data(sample):
     ]
 
 class PSORDataset(Dataset):
-    def __init__(self, cfg, split_index:str, split):
-        dataset_path = cfg.dataset_path
-        categories_path = cfg.categories_path
+    def __init__(self, config, split_index:str, split):
+        dataset_path = config.dataset_path
+        categories_path = config.categories_path
         split_start, split_length = tuple(map(int, split_index.split(",")))
 
         with open(dataset_path, "r") as f:
@@ -47,7 +47,7 @@ class PSORDataset(Dataset):
             categories = json.load(f)
             categories = dict((x["id"], x["name"]) for x in categories)
 
-        self.cfg = cfg
+        self.config = config
         self.categories = categories
         self.split = split
         self.dataset = [self.preprocess_psor_sample(x) for x in dataset]
@@ -57,7 +57,7 @@ class PSORDataset(Dataset):
         input_width = sample["input_width"]
         input_height = sample["input_height"]
         image = Image.open(
-            os.path.join(self.cfg.image_folder_path, sample["name"] + ".jpg")
+            os.path.join(self.config.image_folder_path, sample["name"] + ".jpg")
         ).convert('RGB')
         
         chat_content = format_data({
@@ -85,8 +85,8 @@ class PSORDataset(Dataset):
         name = raw_sample["image"]
         height = raw_sample["height"]
         width = raw_sample["width"]
-        input_width = self.cfg.input_width
-        input_height = self.cfg.input_height
+        input_width = self.config.input_width
+        input_height = self.config.input_height
 
         table = dict(
             (",".join(list(map(str, x["condition"]))), x)
@@ -150,13 +150,13 @@ class PSORDataset(Dataset):
         return sample
 
 class EvalImageHandler:
-    def __init__(self, cfg):
-        self.cfg = cfg
+    def __init__(self, config):
+        self.config = config
     
     def handle(self, image_path):
         name = os.path.splitext(os.path.basename(image_path))[0]
-        input_width = self.cfg.input_width
-        input_height = self.cfg.input_height
+        input_width = self.config.input_width
+        input_height = self.config.input_height
 
         image = Image.open(image_path).convert("RGB")
         input_image = image.resize((input_width, input_height))
@@ -178,20 +178,20 @@ class EvalImageHandler:
             })[0:-1] ## remove assistant
         }
 
-def load_psor_dataset(cfg):
-    eval_dataset = PSORDataset(cfg, split_index=cfg.val_split, split="val")
-    test_dataset = PSORDataset(cfg, split_index=cfg.test_split, split="test")
-    train_dataset = PSORDataset(cfg, split_index=cfg.train_split, split="train")
+def load_psor_dataset(config):
+    eval_dataset = PSORDataset(config, split_index=config.val_split, split="val")
+    test_dataset = PSORDataset(config, split_index=config.test_split, split="test")
+    train_dataset = PSORDataset(config, split_index=config.train_split, split="train")
 
     return eval_dataset, test_dataset, train_dataset
 
 
 if __name__ == "__main__":
-    from config import get_config
+    from config import PSORConfig
 
-    cfg = get_config()
+    config = PSORConfig.from_args_and_file()
 
-    eval_dataset, test_dataset, train_dataset = load_psor_dataset(cfg=cfg)
+    eval_dataset, test_dataset, train_dataset = load_psor_dataset(config=config)
 
     print(f"Train dataset size: {len(train_dataset)}")
     print(f"Eval dataset size: {len(eval_dataset)}")
@@ -202,6 +202,6 @@ if __name__ == "__main__":
     print("Example train sample:", train_dataset[0])
     # print("Example eval sample:", eval_dataset[0])    # Print the first evaluation sample
 
-    handler = EvalImageHandler(cfg=cfg)
+    handler = EvalImageHandler(config=config)
     sample = handler.handle(image_path="assets/dataset/images/000000386912.jpg")
     print(sample)

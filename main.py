@@ -8,27 +8,28 @@ from dataset import load_psor_dataset
 from utils import clear_memory, init_wandb
 from collate import collate_fn
 from callbacks import GenerationEvaluationCallback
-from model import get_model
+from model import PSORModel
+from config import PSORConfig
 
-def train(cfg):
+def train(config: PSORConfig):
     # Configure training arguments
     training_args = SFTConfig(
-        output_dir=os.path.join(cfg.output_dir, cfg.run_name),  # Directory to save the model
-        num_train_epochs=cfg.num_train_epochs,  # Number of training epochs
-        per_device_train_batch_size=cfg.per_device_train_batch_size,  # Batch size for training
-        per_device_eval_batch_size=cfg.per_device_eval_batch_size,  # Batch size for evaluation
-        gradient_accumulation_steps=cfg.gradient_accumulation_steps,  # Steps to accumulate gradients
-        gradient_checkpointing=True,  # Enable gradient checkpointing for memory efficiency
+        output_dir=config.sft_output_dir,  # Directory to save the model
+        num_train_epochs=config.num_train_epochs,  # Number of training epochs
+        per_device_train_batch_size=config.per_device_train_batch_size,  # Batch size for training
+        per_device_eval_batch_size=config.per_device_eval_batch_size,  # Batch size for evaluation
+        gradient_accumulation_steps=config.gradient_accumulation_steps,  # Steps to accumulate gradients
+        # gradient_checkpointing=True,  # Enable gradient checkpointing for memory efficiency
         # Optimizer and scheduler settings
         optim="adamw_torch_fused",  # Optimizer type
-        learning_rate=cfg.learning_rate,  # Learning rate for training
+        learning_rate=config.learning_rate,  # Learning rate for training
         lr_scheduler_type="constant",  # Type of learning rate scheduler
         # Logging and evaluation
-        logging_steps=cfg.logging_steps,  # Steps interval for logging
-        eval_steps=cfg.eval_steps,  # Steps interval for evaluation
+        logging_steps=config.logging_steps,  # Steps interval for logging
+        eval_steps=config.eval_steps,  # Steps interval for evaluation
         eval_strategy="steps",  # Strategy for evaluation
         save_strategy="steps",  # Strategy for saving the model
-        save_steps=cfg.save_steps,  # Steps interval for saving
+        save_steps=config.save_steps,  # Steps interval for saving
         metric_for_best_model="eval_loss",  # Metric to evaluate the best model
         greater_is_better=False,  # Whether higher metric values are better
         load_best_model_at_end=True,  # Load the best model after training
@@ -50,7 +51,7 @@ def train(cfg):
         # max_seq_length=1024  # Maximum sequence length for input
 
         # --- Multi-GPU Specific ---
-        dataloader_num_workers=cfg.num_gpus,  # Optimize data loading
+        dataloader_num_workers=config.num_gpus,  # Optimize data loading
         ddp_find_unused_parameters=False,  # Critical for DDP
         ddp_timeout=1800,  # Prevent timeouts
         # -------------------------
@@ -58,11 +59,15 @@ def train(cfg):
         remove_unused_columns=False,
     )
 
-    init_wandb(cfg, training_args=training_args)
+    init_wandb(config, training_args=config)
 
-    eval_dataset, _, train_dataset = load_psor_dataset(cfg=cfg)
+    config.save_pretrained(training_args.output_dir)
 
-    model, processor = get_model(cfg=cfg)
+    eval_dataset, _, train_dataset = load_psor_dataset(config=config)
+
+    model = PSORModel(config=config)
+
+    processor = model.get_processor()
 
     peft_config = LoraConfig(
         lora_alpha=16,
@@ -82,42 +87,47 @@ def train(cfg):
         peft_config=peft_config,
         processing_class=processor.tokenizer,
         # compute_metrics=None,
-        callbacks=[] if cfg.quick_eval else [GenerationEvaluationCallback(cfg=cfg)],
+        callbacks=[] if config.quick_eval else [GenerationEvaluationCallback(config=config)],
     )
     trainer.train()
     trainer.save_model(training_args.output_dir)
 
-
-def test(cfg):
+def test(config):
     from torch.utils.data import DataLoader
 
-    clear_memory()
+    model = PSORModel(config=config)
 
-    model, processor = get_model(cfg=cfg)
+    if os.path.isdir(config.adapter_path):
+        print(f"Loading adapter from {config.adapter_path}")
+        model.load_adapter(config.adapter_path)
+    else:
+        print(
+            f"No adapter path is found in {config.adapter_path}. Load pretrained weights."
+        )
+
+    processor = model.get_processor()
     
-    if wandb.run == None:
-        init_wandb(cfg, training_args=cfg)
+    init_wandb(config, training_args=config)
 
-    _, test_dataset, _ = load_psor_dataset(cfg=cfg)
+    _, test_dataset, _ = load_psor_dataset(config=config)
+
     test_dataloader = DataLoader(
         test_dataset,
-        batch_size=cfg.per_device_eval_batch_size,
+        batch_size=config.per_device_eval_batch_size,
         collate_fn=partial(collate_fn, processor=processor),
         shuffle=False,
         drop_last=False,
     )
 
-    gen_eval = GenerationEvaluationCallback(cfg=cfg)
+    gen_eval = GenerationEvaluationCallback(config=config)
 
     gen_eval.evaluate(model, processor, test_dataloader)
 
-
 if __name__ == "__main__":
-    from config import get_config
+    config = PSORConfig.from_args_and_file()
+    print(config)
 
-    cfg = get_config()
-
-    if cfg.evaluation:
-        test(cfg=cfg)
+    if not config.evaluation:
+        train(config=config)
     else:
-        train(cfg=cfg)
+        test(config=config)

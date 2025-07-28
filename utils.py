@@ -30,17 +30,17 @@ def clear_memory():
     GPU_monitor()
 
 
-def init_wandb(cfg, training_args):
+def init_wandb(config, training_args):
     import os
     import wandb
     
-    os.environ["WANDB_MODE"] = cfg.wandb_mode
+    os.environ["WANDB_MODE"] = config.wandb_mode
     wandb.init(
-        project=cfg.project,
-        id=cfg.run_id,
-        name=cfg.run_name,
+        project=config.project,
+        id=config.run_id,
+        name=config.run_name,
         config=training_args,
-        mode=cfg.wandb_mode,
+        mode=config.wandb_mode,
     )
 
 class BBox:

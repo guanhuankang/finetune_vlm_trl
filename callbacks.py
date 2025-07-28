@@ -8,15 +8,15 @@ from visualization import visualize
 
 
 class GenerationEvaluationCallback(TrainerCallback):
-    def __init__(self, cfg):
+    def __init__(self, config):
         super().__init__()
-        self.evaluator = Evaluator(cfg=cfg)
-        self.generation = Generation(cfg=cfg)
-        self.cfg = cfg
+        self.evaluator = Evaluator(config=config)
+        self.generation = Generation(config=config)
+        self.config = config
 
     def evaluate(self, model, processor, eval_dataloader):
-        input_width = self.cfg.input_width
-        input_height = self.cfg.input_height
+        input_width = self.config.input_width
+        input_height = self.config.input_height
 
         with tqdm(total=len(eval_dataloader), desc="Evaluation") as bar:
             self.evaluator.init()

@@ -2,20 +2,32 @@ import os
 import time
 
 from dataset import EvalImageHandler
-from config import get_config
 from collate import collate_fn
 from evaluator import Evaluator
 from generation import Generation
 from visualization import visualize
-from model import get_model
+from model import PSORModel
+from config import PSORConfig
 
 if __name__ == "__main__":
-    cfg = get_config(["--evaluation"])
+    config = PSORConfig.from_args_and_file()
+    config.evaluation = True
+    
+    model = PSORModel(config=config)
 
-    model, processor = get_model(cfg=cfg)
-    evaluator = Evaluator(cfg=cfg)
-    generation = Generation(cfg=cfg)
-    eval_image_handler = EvalImageHandler(cfg=cfg)
+    if os.path.isdir(config.adapter_path):
+        print(f"Loading adapter from {config.adapter_path}")
+        model.load_adapter(config.adapter_path)
+    else:
+        print(
+            f"No adapter path is found in {config.adapter_path}. Load pretrained weights."
+        )
+
+    processor = model.get_processor()
+
+    evaluator = Evaluator(config=config)
+    generation = Generation(config=config)
+    eval_image_handler = EvalImageHandler(config=config)
 
     while True:
         image_path = input("Image path:") or "assets/dataset/images/000000386912.jpg"
@@ -54,8 +66,8 @@ if __name__ == "__main__":
         for k, v in vis.items():
             print(k, v)
 
-        save_dir = os.path.join(cfg.output_dir, cfg.run_name)
-        name = sample["name"]
+        save_dir = os.path.join(config.sft_output_dir, "tty_demo")
         os.makedirs(save_dir, exist_ok=True)
 
-        vis["image"].save(os.path.join(save_dir, f"tty_demo_output_{name}.png"))
+        name = sample["name"]
+        vis["image"].save(os.path.join(save_dir, f"{name}.png"))

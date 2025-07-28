@@ -1,36 +1,45 @@
-import os
 import torch
-from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
-from transformers import BitsAndBytesConfig
+from transformers import PreTrainedModel, GenerationMixin
+from transformers import AutoConfig, AutoModel, AutoProcessor
+import os
+from transformers import Qwen2_5_VLForConditionalGeneration
 
-from download_checkpoint import download_checkpoint
+from config import MODEL_TYPE, PSORConfig
 
-def get_model(cfg):
-    model_id = cfg.model_id
+class PSORModel(PreTrainedModel, GenerationMixin):
+    config_class = PSORConfig
 
-    # bnb_config = BitsAndBytesConfig(
-    #     load_in_4bit=True,
-    #     bnb_4bit_use_double_quant=True,
-    #     bnb_4bit_quant_type="nf4",
-    #     bnb_4bit_compute_dtype=torch.bfloat16,
-    # )
+    def __init__(self, config):
+        super().__init__(config)
 
-    download_checkpoint(cfg=cfg)
+        self.config = config
 
-    model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-        model_id,
-        device_map="auto",
-        torch_dtype=torch.bfloat16,
-        # quantization_config=bnb_config,
-    )
+        # bnb_config = BitsAndBytesConfig(
+        #     load_in_4bit=True,
+        #     bnb_4bit_use_double_quant=True,
+        #     bnb_4bit_quant_type="nf4",
+        #     bnb_4bit_compute_dtype=torch.bfloat16,
+        # )
 
-    processor = AutoProcessor.from_pretrained(model_id, use_fast=True)
+        self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+            config.base_model_id,
+            device_map="auto",
+            torch_dtype=torch.bfloat16,
+            # quantization_config=bnb_config,
+        )
+        
+    def get_processor(self):
+        return AutoProcessor.from_pretrained(self.config.base_model_id, use_fast=True)
 
-    adapter_path = os.path.join(cfg.runs_dir, cfg.run_name, cfg.checkpoint_name)
-    if os.path.isdir(adapter_path):
-        model.load_adapter(adapter_path)
-        print(f"Load adapter from {adapter_path}")
-    else:
-        print(f"No adapter path is found in {adapter_path}. Load pretrained weights.")
+    def forward(self, *args, **kwargs):
+        return self.model.forward(*args, **kwargs)
 
-    return model, processor
+    def generate(self, *args, **kwargs):
+        return self.model.generate(*args, **kwargs)
+
+    def _set_gradient_checkpointing(self, *args, **kwargs):
+        self.model._set_gradient_checkpointing(*args, **kwargs)
+
+
+AutoConfig.register(MODEL_TYPE, PSORConfig)
+AutoModel.register(PSORConfig, PSORModel)

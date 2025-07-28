@@ -93,11 +93,11 @@ class PSORGraph:
 
 
 class Evaluator:
-    def __init__(self, cfg):
-        with open(cfg.dataset_path, "r") as f:
+    def __init__(self, config):
+        with open(config.dataset_path, "r") as f:
             dataset = json.load(f)
 
-        with open(cfg.categories_path, "r") as f:
+        with open(config.categories_path, "r") as f:
             categories = json.load(f)
             categories = dict((x["id"], x["name"]) for x in categories)
 
@@ -112,12 +112,12 @@ class Evaluator:
                 "name": data["image"],
                 "width": data["width"],
                 "height": data["height"],
-                "image_path": os.path.join(cfg.image_folder_path, data["image"]+".jpg")
+                "image_path": os.path.join(config.image_folder_path, data["image"]+".jpg")
             }
             for data in dataset
         ]
 
-        self.evaluation = cfg.evaluation
+        self.evaluation = config.evaluation
 
         self.init()
 
