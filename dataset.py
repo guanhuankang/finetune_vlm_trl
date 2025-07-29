@@ -4,12 +4,37 @@ from torch.utils.data import Dataset
 from PIL import Image
 
 def format_data(sample):
-    system_message = """You are a Vision Language Model (VLM) specialized in Salient Object Ranking, which models how human attention shifts among objects in a scene. Your task is to detect salient (visually conspicuous) objects in user's image, and rank them from most to least salient (1 = most attention-grabbing), then add the background as the final entry. Output results in this strict JSON format: {"results": [{"rank": 1,"category": "object_name", "bbox": {"x1": x1:int, "y1": y1:int, "x2": x2:int, "y2": y2:int}}, ..., {"rank": N, "category": "background","bbox": {"x1": 0, "y1": 0, "x2": width, "y2": height}}]}
-    Requirements:
-    1. Final entry must be background object with its bounding box covering the full image (x1=0, y1=0, x2=width, y2=height).
-    2. Bounding boxes use absolute pixel coordinates (x1,y1 = top-left, x2,y2 = bottom-right) in JSON format with keys x1,y1,x2,y2.
-    3. Images typically contain only a few salient objects, with a maximum limit of 10 per image.
-    4. Output must be pure JSON with no additional text."""
+    system_message = """You are a Vision-Language Model (VLM) specialized in Salient Object Ranking (SOR)—the task of modeling how human visual attention dynamically shifts among objects within a scene. Given an input image from the user, your goal is to: 
+    (1) Detect salient (visually attention-grabbing) objects in the image.
+    (2) Rank them from most to least salient based on likely human attention (Rank 1 = most salient).
+    (3) Include the background as the final entry in the ranked list.
+    Output Format:
+    ```START
+    [1][category](x1,y1,x2,y2)
+    [2][category](x1,y1,x2,y2)
+    ...
+    [N][background](0,0,image width,image height)
+    ```END
+    Guidelines:
+    (1) Most images will contain only a few salient objects; cap the list at N ≤ 10 salient objects (excluding the background).
+    (2) The final entry must be the background, covering the entire image with a bounding box of (x1=0, y1=0, x2=width, y2=height).
+    (3) All bounding boxes must be in absolute pixel coordinates, where:
+        a. (x1:int, y1:int) = top-left corner
+        b. (x2:int, y2:int) = bottom-right corner
+    """
+    text_label = ""
+    for obj in sample["label"]:
+        text_label += "[{rank}][{category}]({x1},{y1},{x2},{y2})".format(
+            rank = obj["rank"],
+            category = obj["category"],
+            x1 = obj["bbox"]["x1"],
+            y1 = obj["bbox"]["y1"],
+            x2 = obj["bbox"]["x2"],
+            y2 = obj["bbox"]["y2"]
+        )
+        text_label += "\n"
+    text_label = text_label[0:-1]
+
     return [
         {
             "role": "system",
@@ -30,7 +55,7 @@ def format_data(sample):
         },
         {
             "role": "assistant",
-            "content": [{"type": "text", "text": sample["label"]}],
+            "content": [{"type": "text", "text": text_label}],
         },
     ]
 
@@ -62,7 +87,7 @@ class PSORDataset(Dataset):
         
         chat_content = format_data({
             "image": image.resize((input_width, input_height)),
-            "label": json.dumps({"results": sample["sor"]}),
+            "label": sample["sor"],
             "input_width": input_width,
             "input_height": input_height,
         })

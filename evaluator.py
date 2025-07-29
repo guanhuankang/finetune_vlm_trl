@@ -2,6 +2,7 @@ import os
 import json
 import numpy as np
 from PIL import Image
+import copy
 
 from utils import BBox
 
@@ -181,8 +182,8 @@ class Evaluator:
             {"rank": 1,"category": "object_name", "bbox": {"x1": 0, "y1": 0, "x2": 0, "y2": 0}}
         """
         generated_lst = []
-        for obj in results["results"]:
-            bbox = BBox(obj["bbox"])
+        for obj in results:
+            bbox = copy.copy(obj["bbox"])
             bbox.scale(r_x = width / input_width, r_y = height / input_height)
             generated_lst.append({
                 "rank": obj["rank"],

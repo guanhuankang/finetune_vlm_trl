@@ -1,17 +1,31 @@
 from llm_json import json
+from utils import BBox
 
 class Generation:
     def __init__(self, config):
         super().__init__()
         self.config = config
     
-    def try_parse_json(self, s):
-        try:
-            results = json.loads(s)
-            assert isinstance(results["results"], list)
-            return results
-        except:
-            return {"results": []}
+    def try_parses(self, text):
+        out = []
+        for s in text.split("\n"):
+            try:
+                rank = int(s.split("]")[0].split("[")[-1])
+                category = str(s.split("]")[1].split("[")[-1]).strip()
+                bbox = tuple(map(int, s.split("(")[-1].split(")")[0].split(",")))
+                out.append({
+                    "rank": rank,
+                    "category": category,
+                    "bbox": BBox({
+                        "x1": bbox[0],
+                        "y1": bbox[1],
+                        "x2": bbox[2],
+                        "y2": bbox[3],
+                    })
+                })
+            except:
+                continue
+        return out
 
     def generate(self, model, processor, batch):
         trim = lambda input_ids, output_ids: [ out_ids[len(in_ids)::] for in_ids, out_ids in zip(input_ids, output_ids)]
@@ -39,7 +53,7 @@ class Generation:
         for print_text, text in zip(print_texts, generated_texts):
             outputs.append({
                 "generated_text": print_text,
-                "results": self.try_parse_json(text)
+                "results": self.try_parses(text)
             })
         return outputs
     
