@@ -19,7 +19,7 @@ def train(config: PSORConfig):
         per_device_train_batch_size=config.per_device_train_batch_size,  # Batch size for training
         per_device_eval_batch_size=config.per_device_eval_batch_size,  # Batch size for evaluation
         gradient_accumulation_steps=config.gradient_accumulation_steps,  # Steps to accumulate gradients
-        # gradient_checkpointing=True,  # Enable gradient checkpointing for memory efficiency
+        gradient_checkpointing=False,  # Enable gradient checkpointing for memory efficiency
         # Optimizer and scheduler settings
         optim="adamw_torch_fused",  # Optimizer type
         learning_rate=config.learning_rate,  # Learning rate for training
