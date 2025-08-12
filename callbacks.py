@@ -17,6 +17,7 @@ class GenerationEvaluationCallback(TrainerCallback):
     def evaluate(self, model, processor, eval_dataloader):
         input_width = self.config.input_width
         input_height = self.config.input_height
+        n_image_visualization = self.config.n_image_visualization
 
         with tqdm(total=len(eval_dataloader), desc="Evaluation") as bar:
             self.evaluator.init()
@@ -38,19 +39,23 @@ class GenerationEvaluationCallback(TrainerCallback):
                     )
 
                     image = self.evaluator.get_image(name=name)
-                    image = wandb.Image(
-                        visualize(image=image, generated_lst=generated_lst),
-                        caption=name,
-                    )
-                    wandb.log({"image_"+name: image})
-                    wandb.log(
-                        {
-                            "table_"+name: wandb.Table(
-                                columns=["generated_text", "results"],
-                                data=[[str(out["generated_text"]), str(out["results"])]],
-                            )
-                        }
-                    )
+                    image = visualize(image=image, generated_lst=generated_lst)
+                    if index < n_image_visualization:
+                        wandb.log({"image_" + name: wandb.Image(image, caption=name)})
+                        wandb.log(
+                            {
+                                "table_"
+                                + name: wandb.Table(
+                                    columns=["generated_text", "results"],
+                                    data=[
+                                        [
+                                            str(out["generated_text"]),
+                                            str(out["results"]),
+                                        ]
+                                    ],
+                                )
+                            }
+                        )
 
                 bar.update()
 
@@ -59,6 +64,8 @@ class GenerationEvaluationCallback(TrainerCallback):
             wandb.log(log_metrics)
 
             print(log_metrics)
+
+            return log_metrics
 
     def on_evaluate(self, args, state, control, **kwargs):
         if not state.is_local_process_zero:

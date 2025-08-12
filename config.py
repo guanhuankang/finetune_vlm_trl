@@ -51,7 +51,7 @@ class PSORConfig(PretrainedConfig):
         val_split: str = "0,100",
         test_split: str = "0,5000",
         train_split: str = "5000,10000",
-        n_image_visualization: int = 100,
+        n_image_visualization: int = 10,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -59,7 +59,7 @@ class PSORConfig(PretrainedConfig):
         self.project = project
         self.run_name = run_name
         self.run_id = generate_run_id(run_name=run_name)
-        self.ouput_dir = output_dir
+        self.output_dir = output_dir
         self.sft_output_dir = os.path.join(output_dir, run_name)
         self.adapter_path = adapter_path
         self.evaluation = evaluation

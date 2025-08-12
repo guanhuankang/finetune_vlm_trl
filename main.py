@@ -1,6 +1,6 @@
 import os
 from trl import SFTConfig, SFTTrainer
-import wandb
+import json
 from peft import LoraConfig
 from functools import partial
 
@@ -97,6 +97,9 @@ def test(config):
 
     model = PSORModel(config=config)
 
+    if config.adapter_path == "":
+        config.adapter_path = config.sft_output_dir
+
     if os.path.isdir(config.adapter_path):
         print(f"Loading adapter from {config.adapter_path}")
         model.load_adapter(config.adapter_path)
@@ -104,6 +107,9 @@ def test(config):
         print(
             f"No adapter path is found in {config.adapter_path}. Load pretrained weights."
         )
+    
+    eval_dir = os.path.join(config.output_dir, "evaluation", config.run_id)
+    config.save_pretrained(eval_dir)
 
     processor = model.get_processor()
     
@@ -121,7 +127,10 @@ def test(config):
 
     gen_eval = GenerationEvaluationCallback(config=config)
 
-    gen_eval.evaluate(model, processor, test_dataloader)
+    log_metrics = gen_eval.evaluate(model, processor, test_dataloader)
+
+    with open(os.path.join(eval_dir, "log_metrics.json"), "w") as f:
+        json.dump(log_metrics, f)
 
 if __name__ == "__main__":
     config = PSORConfig.from_args_and_file()

@@ -179,7 +179,7 @@ class Evaluator:
     ):
         """
         "results": list of detected objects
-            {"rank": 1,"category": "object_name", "bbox": {"x1": 0, "y1": 0, "x2": 0, "y2": 0}}
+            {"rank": 1,"category": "object_name", "bbox": BBox}
         """
         generated_lst = []
         for obj in results:

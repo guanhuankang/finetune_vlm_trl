@@ -22,7 +22,7 @@ We use wandb to record training log.
 
 Evaluation Mode:
 ```shell
-source .venv/bin/activate && python main.py --evaluation --run_id RUN_ID
+source .venv/bin/activate && python main.py --evaluation --config_file CONFIG_FILE
 ```
 
 ## Inference
