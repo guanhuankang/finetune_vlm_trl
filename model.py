@@ -19,7 +19,7 @@ class PSORModel(PreTrainedModel, GenerationMixin):
 
         self.config = config
         self.model = self._load_base_model(config)
-        self.mask_decoder = self._load_mask_decoder(config)
+        # self.mask_decoder = self._load_mask_decoder(config)
 
     def _load_base_model(self, config):
         base_kwargs = {
