@@ -21,9 +21,9 @@ def batch_convert_mask_to_code(filename, outname, ckp):
 
     return len(mask_to_code)
 
-filename = "/home/huankguan2/projects/psor2025/finetune_vlm_trl/assets/dataset/psor.json"
-outname = "/home/huankguan2/projects/psor2025/finetune_vlm_trl/assets/dataset/psor_maskcode.json"
-ckp = "/home/huankguan2/projects/psor2025/finetune_vlm_trl/assets/1d_tokenizer/tokenizer_titok_l32_imagenet"
+filename = "assets/dataset/psor.json"
+outname = "assets/dataset/psor_maskcode.json"
+ckp = "assets/1d_tokenizer/tokenizer_titok_l32_imagenet"
 
 n = batch_convert_mask_to_code(
     filename=filename,
