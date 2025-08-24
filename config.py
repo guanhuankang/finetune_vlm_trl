@@ -12,13 +12,14 @@ MODEL_TYPE = "PSOR"
 def generate_run_name():
     ctime = time.strftime("%Y%m%d-%H%M%S")
     token = secrets.token_hex(2)
-    return f"{token}-{ctime}"
+    return f"{ctime}-{token}"
 
 
 def generate_run_id(run_name: str):
     token = secrets.token_hex(2)
-    prefix = run_name[:4] if len(run_name) >= 4 else run_name
-    return f"{prefix}{token}{run_name[4:]}"
+    return f"{run_name}{token}"
+    # prefix = run_name[:4] if len(run_name) >= 4 else run_name
+    # return f"{prefix}{token}{run_name[4:]}"
 
 
 class PSORConfig(PretrainedConfig):
@@ -35,8 +36,8 @@ class PSORConfig(PretrainedConfig):
         mask_decoder_id: str = "assets/1d_tokenizer/tokenizer_titok_l32_imagenet",
         num_train_epochs: int = 2,
         num_gpus: int = 1,
-        per_device_train_batch_size: int = 4,
-        gradient_accumulation_steps: int = 4,
+        per_device_train_batch_size: int = 2,
+        gradient_accumulation_steps: int = 8,
         per_device_eval_batch_size: int = 1,
         logging_steps: int = 5,
         eval_steps: int = 625,
