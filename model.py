@@ -44,14 +44,10 @@ class PSORModel(PreTrainedModel, GenerationMixin):
         return AutoProcessor.from_pretrained(self.config.base_model_id, use_fast=True)
 
     def forward(self, *args, **kwargs):
-        out = self.model.forward(*args, **kwargs)
-        print(out)
-        return out
+        return self.model.forward(*args, **kwargs)
 
     def generate(self, *args, **kwargs):
-        out = self.model.generate(*args, **kwargs)
-        print("generate:", out)
-        return out
+        return self.model.generate(*args, **kwargs)
 
 AutoConfig.register(MODEL_TYPE, PSORConfig)
 AutoModel.register(PSORConfig, PSORModel)
