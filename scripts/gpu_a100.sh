@@ -1,5 +1,5 @@
 #!/bin/bash
-run_name=$(head -c2 /dev/urandom | od -An -tx1 | tr -d ' \n')-$(date +"%Y%m%d-%H%M%S")
+run_name=$(date +"%Y%m%d-%H%M%S")-$(head -c2 /dev/urandom | od -An -tx1 | tr -d ' \n')
 
 args="$@"
 

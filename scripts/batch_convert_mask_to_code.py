@@ -1,6 +1,8 @@
 import json
 import tqdm
 from mask_tokenizer import MaskTokenizer
+from pycocotools.mask import decode as coco_mask_decode
+from PIL import Image
 
 def batch_convert_mask_to_code(filename, outname, ckp):
     mt = MaskTokenizer(checkpoint_path=ckp)
@@ -10,11 +12,13 @@ def batch_convert_mask_to_code(filename, outname, ckp):
 
     mask_to_code = {}
 
-    for x in tqdm.tqdm(data):
-        for i, anno in enumerate(x["annotations"]):
-            code = mt.encode2code(mask_rle=anno["mask"])
-            code = code.view(-1).tolist()
-            mask_to_code[f"{x['image']}_{i}"] = code
+    for item in tqdm.tqdm(data):
+        for i, anno in enumerate(item["annotations"]):
+            x, y, w, h = tuple(map(int, anno["box"]))
+            mask_np = coco_mask_decode(anno["mask"])
+            mask_np = mask_np[y:y+max(h,1), x:x+max(w,1)]
+            code = mt.encode2code(mask_np=mask_np)
+            mask_to_code[f"{item['image']}_{i}"] = code.view(-1).tolist()
 
     with open(outname, "w") as f:
         json.dump(mask_to_code, f)
@@ -22,7 +26,7 @@ def batch_convert_mask_to_code(filename, outname, ckp):
     return len(mask_to_code)
 
 filename = "assets/dataset/psor.json"
-outname = "assets/dataset/psor_maskcode.json"
+outname = "assets/dataset/psor_maskcode_bbox.json"
 ckp = "assets/1d_tokenizer/tokenizer_titok_l32_imagenet"
 
 n = batch_convert_mask_to_code(
