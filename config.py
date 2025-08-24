@@ -48,7 +48,7 @@ class PSORConfig(PretrainedConfig):
         input_width: int = 1036,
         input_height: int = 1036,
         dataset_path: str = "assets/dataset/psor.json",
-        maskcode_path: str = "assets/dataset/psor_maskcode.json",
+        maskcode_path: str = "assets/dataset/psor_maskcode_bbox.json",
         categories_path: str = "assets/dataset/categories.json",
         image_folder_path: str = "assets/dataset/images",
         val_split: str = "0,100",
