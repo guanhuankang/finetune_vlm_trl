@@ -7,7 +7,10 @@ We use `uv` to manage the environment.
 ```shell
 uv venv
 source .venv/bin/activate
-uv pip install torch torchvision trl transformers pycocotools wandb qwen_vl_utils pillow peft llm-json tqdm
+uv pip install torch torchvision trl transformers pycocotools wandb qwen_vl_utils pillow peft llm-json tqdm einops omegaconf
+
+git clone https://github.com/bytedance/1d-tokenizer.git
+mv "1d-tokenizer" bytedance_1d_tokenizer
 ```
 
 ## Training

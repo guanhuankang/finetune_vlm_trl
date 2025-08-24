@@ -32,6 +32,7 @@ class PSORConfig(PretrainedConfig):
         adapter_path: str = "",
         evaluation: bool = False,
         base_model_id: str = "assets/Qwen/Qwen2.5-VL-3B-Instruct",
+        mask_decoder_id: str = "assets/1d_tokenizer/tokenizer_titok_l32_imagenet",
         num_train_epochs: int = 2,
         num_gpus: int = 1,
         per_device_train_batch_size: int = 4,
@@ -46,6 +47,7 @@ class PSORConfig(PretrainedConfig):
         input_width: int = 1036,
         input_height: int = 1036,
         dataset_path: str = "assets/dataset/psor.json",
+        maskcode_path: str = "assets/dataset/psor_maskcode.json",
         categories_path: str = "assets/dataset/categories.json",
         image_folder_path: str = "assets/dataset/images",
         val_split: str = "0,100",
@@ -64,6 +66,7 @@ class PSORConfig(PretrainedConfig):
         self.adapter_path = adapter_path
         self.evaluation = evaluation
         self.base_model_id = base_model_id
+        self.mask_decoder_id = mask_decoder_id
         self.num_train_epochs = num_train_epochs
         self.num_gpus = num_gpus
         self.per_device_train_batch_size = per_device_train_batch_size
@@ -78,6 +81,7 @@ class PSORConfig(PretrainedConfig):
         self.input_width = input_width
         self.input_height = input_height
         self.dataset_path = dataset_path
+        self.maskcode_path = maskcode_path
         self.categories_path = categories_path
         self.image_folder_path = image_folder_path
         self.val_split = val_split

@@ -2,6 +2,7 @@ import os
 import json
 from torch.utils.data import Dataset
 from PIL import Image
+from pycocotools.mask import decode as coco_mask_decode
 
 def format_data(sample):
     system_message = """You are a Vision-Language Model (VLM) specialized in Salient Object Ranking (SOR)—the task of modeling how human visual attention dynamically shifts among objects within a scene. Given an input image from the user, your goal is to: 
@@ -10,10 +11,10 @@ def format_data(sample):
     (3) Include the background as the final entry in the ranked list.
     Output Format:
     ```START
-    [1][category](x1,y1,x2,y2)
-    [2][category](x1,y1,x2,y2)
+    [1](category)[bbox](x1,y1,x2,y2)[mask](t_1, t_2, ..., t_32)
+    [2](category)[bbox](x1,y1,x2,y2)[mask](t_1, t_2, ..., t_32)
     ...
-    [N][background](0,0,image width,image height)
+    [N](background)[bbox](0,0,image width,image height)[mask]()
     ```END
     Guidelines:
     (1) Most images will contain only a few salient objects; cap the list at N ≤ 10 salient objects (excluding the background).
@@ -21,16 +22,18 @@ def format_data(sample):
     (3) All bounding boxes must be in absolute pixel coordinates, where:
         a. (x1:int, y1:int) = top-left corner
         b. (x2:int, y2:int) = bottom-right corner
+    (4) Masks are represented by 32 token indices from a codebook of 4,096 tokens, with indices in the range [0, 4095].
     """
     text_label = ""
     for obj in sample["label"]:
-        text_label += "[{rank}][{category}]({x1},{y1},{x2},{y2})".format(
+        text_label += "[{rank}]({category})[bbox]({x1},{y1},{x2},{y2})[mask]({mask})".format(
             rank = obj["rank"],
             category = obj["category"],
             x1 = obj["bbox"]["x1"],
             y1 = obj["bbox"]["y1"],
             x2 = obj["bbox"]["x2"],
-            y2 = obj["bbox"]["y2"]
+            y2 = obj["bbox"]["y2"],
+            mask = ",".join(list(map(str, obj["mask"])))
         )
         text_label += "\n"
     text_label = text_label[0:-1]
@@ -62,11 +65,15 @@ def format_data(sample):
 class PSORDataset(Dataset):
     def __init__(self, config, split_index:str, split):
         dataset_path = config.dataset_path
+        maskcode_path = config.maskcode_path
         categories_path = config.categories_path
         split_start, split_length = tuple(map(int, split_index.split(",")))
 
         with open(dataset_path, "r") as f:
             dataset = json.load(f)[split_start: split_start + split_length]
+
+        with open(maskcode_path, "r") as f:
+            maskcode = json.load(f)
 
         with open(categories_path, "r") as f:
             categories = json.load(f)
@@ -75,6 +82,7 @@ class PSORDataset(Dataset):
         self.config = config
         self.categories = categories
         self.split = split
+        self.maskcode = maskcode
         self.dataset = [self.preprocess_psor_sample(x) for x in dataset]
 
     def __getitem__(self, index):
@@ -128,7 +136,8 @@ class PSORDataset(Dataset):
             return {
                 "rank": rank,
                 "category": "background",
-                "bbox": {"x1": 0, "y1": 0, "x2": input_width, "y2": input_height}
+                "bbox": {"x1": 0, "y1": 0, "x2": input_width, "y2": input_height},
+                "mask": []
             }
 
         while True:
@@ -148,16 +157,17 @@ class PSORDataset(Dataset):
                 sor.append(
                     {
                         "rank": rank,
+                        "category": self.categories[anno_data["category_id"]],
                         "bbox": {
                             "x1": int(x1 / width * input_width),
                             "y1": int(y1 / height * input_height),
                             "x2": int(x2 / width * input_width),
                             "y2": int(y2 / height * input_height),
                         },
-                        "category": self.categories[anno_data["category_id"]],
+                        "mask": self.maskcode.get(f"{name}_{anno_idx}", [])
                     }
                 )
-                masks.append({"rank": rank, "mask": anno_data["mask"]})
+                masks.append({"rank": rank, "mask": coco_mask_decode(anno_data["mask"])})
             rank = rank + 1
             k = f"{k},{anno_idx}" if k != "" else f"{anno_idx}"
 
