@@ -11,9 +11,8 @@ class Generation:
         for s in text.split("\n"):
             try:
                 rank = int(s.split("]")[0].split("[")[-1])
-                category = str(s.split(")")[0].split("(")[-1]).strip()
-                bbox = tuple(map(int, s.split(")")[1].split("(")[-1].split(",")))
-                mask = tuple(map(int, s.split(")")[2].split("(")[-1].split(",") ))
+                category = str(s.split("]")[1].split("[")[-1]).strip()
+                bbox = tuple(map(int, s.split("(")[-1].split(")")[0].split(",")))
                 out.append({
                     "rank": rank,
                     "category": category,
@@ -22,8 +21,7 @@ class Generation:
                         "y1": bbox[1],
                         "x2": bbox[2],
                         "y2": bbox[3],
-                    }),
-                    "mask": mask
+                    })
                 })
             except:
                 continue
