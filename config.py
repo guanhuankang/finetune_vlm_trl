@@ -26,7 +26,7 @@ class PSORConfig(PretrainedConfig):
     def __init__(
         self,
         project: str = "PSOR",
-        run_name: str = None,
+        run_name: str = "",
         output_dir: str = "output",
         ckp: int = -1,
         evaluation: bool = False,
