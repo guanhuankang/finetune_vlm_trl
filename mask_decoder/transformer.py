@@ -5,6 +5,18 @@ import torch.nn.functional as F
 from typing import Optional, Tuple, Type
 from einops import rearrange
 
+def init_weights(m):
+    if hasattr(m, 'weight') and m.weight is not None:
+        if isinstance(m, (nn.Linear, nn.Conv1d, nn.Conv2d, nn.Conv3d)):
+            nn.init.xavier_uniform_(m.weight)  # 或用 xavier_normal_
+        elif isinstance(m, nn.Embedding):
+            nn.init.xavier_uniform_(m.weight)
+    if hasattr(m, 'bias') and m.bias is not None:
+        nn.init.constant_(m.bias, 0.0)
+    if isinstance(m, (nn.LayerNorm, nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d)):
+        nn.init.constant_(m.weight, 1.0)
+        nn.init.constant_(m.bias, 0.0)
+
 class MLPBlock(nn.Module):
     def __init__(
         self,
@@ -108,6 +120,8 @@ class Transformer(nn.Module):
             )
             for _ in range(n_blocks)
         ])
+
+        self.apply(init_weights)
 
     def forward(self, x):
         for blk in self.blocks:

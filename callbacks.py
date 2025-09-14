@@ -1,13 +1,14 @@
 from transformers import TrainerCallback
 import wandb
 from tqdm import tqdm
+import os
 
 from evaluator import Evaluator
 from generation import Generation
 from visualization import visualize
 
 
-class GenerationEvaluationCallback(TrainerCallback):
+class PSORCallback(TrainerCallback):
     def __init__(self, config):
         super().__init__()
         self.evaluator = Evaluator(config=config)
@@ -29,17 +30,10 @@ class GenerationEvaluationCallback(TrainerCallback):
                 for name, width, height, out in zip(
                     batch.names, batch.widths, batch.heights, outputs
                 ):
-                    generated_lst = self.evaluator.update(
-                        name=name,
-                        width=width,
-                        height=height,
-                        input_width=input_width,
-                        input_height=input_height,
-                        results=out["results"],
-                    )
+                    self.evaluator.update(name=name, results=out["results"])
 
                     image = self.evaluator.get_image(name=name)
-                    image = visualize(image=image, generated_lst=generated_lst)
+                    image = visualize(image=image, generated_lst=out["results"])
                     if index < n_image_visualization:
                         wandb.log({"image_" + name: wandb.Image(image, caption=name)})
                         wandb.log(
@@ -50,7 +44,20 @@ class GenerationEvaluationCallback(TrainerCallback):
                                     data=[
                                         [
                                             str(out["generated_text"]),
-                                            str(out["results"]),
+                                            "\n".join(
+                                                [
+                                                    ",".join(
+                                                        [
+                                                            f"{k}:{x[k]}"
+                                                            for k in ["rank", "category", "bbox"]
+                                                            + [
+                                                                f"mask:{x['mask'] is None}"
+                                                            ]
+                                                        ]
+                                                    )
+                                                    for x in out["results"]
+                                                ]
+                                            ),
                                         ]
                                     ],
                                 )
@@ -78,3 +85,8 @@ class GenerationEvaluationCallback(TrainerCallback):
             self.evaluate(model, processor, eval_dataloader)
 
             return control
+
+    def on_save(self, args, state, control, **kwargs):
+        model = kwargs["model"]
+        model.seg_model.save_pretrained(os.path.join(self.config.sft_output_dir, f"checkpoint-{state.global_step}"))
+        return super().on_save(args, state, control, **kwargs)

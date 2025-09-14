@@ -3,16 +3,23 @@ import json
 import numpy as np
 from PIL import Image
 import copy
+from pycocotools.mask import decode as coco_mask_decode
 
 from utils import BBox
 
 def enc(lst):
     return ",".join(list(map(str, lst)))
 
+def mask_iou(x, y):
+    i = (x & y).sum()
+    u = (x | y).sum()
+    return (i + 1e-6) / (u + 1e-6)
+
 class COCOAnno:
     def __init__(self, anno: dict, categories=None):
         x, y, w, h = anno["box"]
         self.bbox = BBox({"x1": x, "y1": y, "x2": x + w, "y2": y + h})
+        self.mask = anno["mask"]
 
         self.category = (
             anno["category_id"]
@@ -21,7 +28,7 @@ class COCOAnno:
         )
 
     def __str__(self):
-        return str({"category": self.category, "bbox": str(self.bbox)})
+        return str({"category": self.category, "bbox": str(self.bbox), "mask": self.mask})
 
 
 class PSORGraph:
@@ -65,8 +72,8 @@ class PSORGraph:
         iou_scores = []
         for c in children_data:
             anno_idx = c["anno_idx"]
-            if anno_idx == "end":
-                score = 1.0 if obj["category"] == "background" else 0.0
+            if (anno_idx == "end") or (obj["category"] == "background"):
+                score = 1.0 if (obj["category"] == "background" and anno_idx == "end") else 0.0
             else:
                 score = self.annos[anno_idx].bbox.iou(obj["bbox"])
             iou_scores.append(score)
@@ -74,9 +81,18 @@ class PSORGraph:
         matched_index = np.argmax(iou_scores)
 
         if iou_scores[matched_index] >= self.matched_threshold:
+            anno_idx = children_data[matched_index]["anno_idx"]
+
+            pred_mask = obj["mask"]
+            gt_mask = coco_mask_decode(self.annos[anno_idx].mask)
+            m_mae = np.mean(np.abs(gt_mask - pred_mask))
+            m_iou = mask_iou(pred_mask > 0.5, gt_mask > 0.5)
+            
             return {
-                "anno_idx": children_data[matched_index]["anno_idx"],
+                "anno_idx": anno_idx,
                 "iou": iou_scores[matched_index],
+                "mask_iou": m_iou,
+                "mask_mae": m_mae,
                 "action_reward": children_data[matched_index]["action_reward"],
                 "max_action_reward": children_data[node_data["optimal_index"]][
                     "action_reward"
@@ -86,6 +102,8 @@ class PSORGraph:
             return {
                 "anno_idx": None,
                 "iou": 0.0,
+                "mask_iou": 0.0,
+                "mask_mae": 1.0,
                 "action_reward": 0.0,
                 "max_action_reward": children_data[node_data["optimal_index"]][
                     "action_reward"
@@ -144,8 +162,11 @@ class Evaluator:
             "advantage": 0.0,
             "advantage_iou": 0.0,
         }
+
         sum_action_rewards = 0.0
         sum_iou_aware_action_rewards = 0.0
+        mask_iou_list = []
+        mask_mae_list = []
 
         for obj in generated_lst:
             y = graph.match(obj, state)
@@ -156,7 +177,9 @@ class Evaluator:
 
             sum_action_rewards += y["action_reward"]
             sum_iou_aware_action_rewards += y["action_reward"] * y["iou"]
-
+            mask_iou_list.append(y["mask_iou"])
+            mask_mae_list.append(y["mask_mae"])
+            
             state.append(y["anno_idx"])
             if y["anno_idx"] == "end" or y["anno_idx"] == None:  # early stop
                 break
@@ -165,40 +188,26 @@ class Evaluator:
         scores["advantage_iou"] = sum_iou_aware_action_rewards / (
             sum_action_rewards + 1e-6
         )
-
+        scores["mask_iou"] = float(np.mean(mask_iou_list))
+        scores["mask_mae"] = float(np.mean(mask_mae_list))
+        
         return scores
 
     def update(
         self,
         name: str,
-        width: int,
-        height: int,
-        input_width: int,
-        input_height: int,
-        results: dict,
+        results: list,
     ):
         """
         "results": list of detected objects
-            {"rank": 1,"category": "object_name", "bbox": BBox}
+            {"rank": 1,"category": "object_name", "bbox": BBox, \
+                "mask": [optinal]numpy.array, "name", "width", "height"}
         """
-        generated_lst = []
-        for obj in results:
-            bbox = copy.copy(obj["bbox"])
-            bbox.scale(r_x = width / input_width, r_y = height / input_height)
-            generated_lst.append({
-                "rank": obj["rank"],
-                "category": obj["category"],
-                "bbox": bbox
-            })
-
-        generated_lst.sort(key=lambda obj: obj["rank"])
+        results = results + [{"rank": 99, "category": "background"}]
 
         if name in self.name_map_to_dataset_index:
             graph = self.graphs[self.name_map_to_dataset_index[name]]
-            self.results.append(self.calc(generated_lst, graph))
-            return generated_lst
-        else:
-            return generated_lst
+            self.results.append(self.calc(results, graph))
 
     def sum(self):
         ret = {}

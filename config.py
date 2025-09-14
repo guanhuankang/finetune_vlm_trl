@@ -26,11 +26,17 @@ class PSORConfig(PretrainedConfig):
     def __init__(
         self,
         project: str = "PSOR",
-        run_name: str = generate_run_name(),
+        run_name: str = None,
         output_dir: str = "output",
-        adapter_path: str = "",
+        ckp: int = -1,
         evaluation: bool = False,
         base_model_id: str = "assets/Qwen/Qwen2.5-VL-3B-Instruct",
+        base_model_layer_idx_for_mask: int = -3,
+        n_mask_tokens: int = 4,
+        sam_checkpoint: str = "assets/sam_vit_h_4b8939.pth",
+        mask_decoder_n_blocks: int = 0,
+        mask_decoder_dim: int = 256,
+        mask_decoder_proj2_dim: int = 2048,
         num_train_epochs: int = 2,
         num_gpus: int = 1,
         per_device_train_batch_size: int = 4,
@@ -38,7 +44,6 @@ class PSORConfig(PretrainedConfig):
         per_device_eval_batch_size: int = 1,
         logging_steps: int = 5,
         eval_steps: int = 625,
-        quick_eval: bool = False,
         save_steps: int = 625,
         wandb_mode: str = "offline",
         learning_rate: float = 2e-5,
@@ -53,36 +58,22 @@ class PSORConfig(PretrainedConfig):
         n_image_visualization: int = 10,
         **kwargs,
     ):
+        init_args = [(k, v) for k, v in locals().items() if k not in ('self', 'kwargs', '__class__')]
+        init_args.sort()
+
         super().__init__(**kwargs)
 
-        self.project = project
-        self.run_name = run_name
-        self.run_id = generate_run_id(run_name=run_name)
-        self.output_dir = output_dir
-        self.sft_output_dir = os.path.join(output_dir, run_name)
-        self.adapter_path = adapter_path
-        self.evaluation = evaluation
-        self.base_model_id = base_model_id
-        self.num_train_epochs = num_train_epochs
-        self.num_gpus = num_gpus
-        self.per_device_train_batch_size = per_device_train_batch_size
-        self.gradient_accumulation_steps = gradient_accumulation_steps
-        self.per_device_eval_batch_size = per_device_eval_batch_size
-        self.logging_steps = logging_steps
-        self.eval_steps = eval_steps
-        self.quick_eval = quick_eval
-        self.save_steps = save_steps
-        self.wandb_mode = wandb_mode
-        self.learning_rate = learning_rate
-        self.input_width = input_width
-        self.input_height = input_height
-        self.dataset_path = dataset_path
-        self.categories_path = categories_path
-        self.image_folder_path = image_folder_path
-        self.val_split = val_split
-        self.test_split = test_split
-        self.train_split = train_split
-        self.n_image_visualization = n_image_visualization
+        for k, v in init_args:
+            setattr(self, k, v)
+
+        self.run_name = run_name or generate_run_name()
+        self.run_id = generate_run_id(self.run_name)
+        self.sft_output_dir = os.path.join(output_dir, self.run_name)
+        
+        if "-3B-" in base_model_id:
+            self.mask_decoder_proj2_dim = 2048
+        elif "-7B-" in base_model_id:
+            self.mask_decoder_proj2_dim = 3584
 
     @classmethod
     def from_args_and_file(cls):
@@ -133,5 +124,5 @@ class PSORConfig(PretrainedConfig):
         return cls(**config_data)
 
 if __name__ == "__main__":
-    config = PSORConfig.from_args_and_file()
+    config = PSORConfig()
     print(config)

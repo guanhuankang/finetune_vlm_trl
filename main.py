@@ -7,7 +7,7 @@ from functools import partial
 from dataset import load_psor_dataset
 from utils import clear_memory, init_wandb
 from collate import collate_fn
-from callbacks import GenerationEvaluationCallback
+from callbacks import PSORCallback
 from model import PSORModel
 from config import PSORConfig
 
@@ -61,14 +61,10 @@ def train(config: PSORConfig):
 
     init_wandb(config, training_args=config)
 
-    config.save_pretrained(training_args.output_dir)
+    config.save_pretrained(training_args.output_dir)    
 
     eval_dataset, _, train_dataset = load_psor_dataset(config=config)
-
-    model = PSORModel(config=config)
-
-    processor = model.get_processor()
-
+    
     peft_config = LoraConfig(
         lora_alpha=16,
         lora_dropout=0.05,
@@ -77,6 +73,10 @@ def train(config: PSORConfig):
         target_modules=["q_proj", "v_proj"],
         task_type="CAUSAL_LM",
     )
+
+    model = PSORModel(config=config)
+
+    processor = model.get_processor()
 
     trainer = SFTTrainer(
         model=model,
@@ -87,34 +87,41 @@ def train(config: PSORConfig):
         peft_config=peft_config,
         processing_class=processor.tokenizer,
         # compute_metrics=None,
-        callbacks=[] if config.quick_eval else [GenerationEvaluationCallback(config=config)],
+        callbacks=[PSORCallback(config=config)],
     )
+
+    trainer.model.seg_model.set_trainable()
+
+    for name, param in trainer.model.named_parameters():
+        if param.requires_grad:
+            print(f"✅ trainable parameters: {name}")
+
     trainer.train()
     trainer.save_model(training_args.output_dir)
+    trainer.model.seg_model.save_pretrained(training_args.output_dir)
 
 def test(config):
     from torch.utils.data import DataLoader
 
-    model = PSORModel(config=config)
-
-    if config.adapter_path == "":
-        config.adapter_path = config.sft_output_dir
-
-    if os.path.isdir(config.adapter_path):
-        print(f"Loading adapter from {config.adapter_path}")
-        model.load_adapter(config.adapter_path)
-    else:
-        print(
-            f"No adapter path is found in {config.adapter_path}. Load pretrained weights."
-        )
-    
-    eval_dir = os.path.join(config.output_dir, "evaluation", config.run_id)
-    config.save_pretrained(eval_dir)
-
-    processor = model.get_processor()
-    
     init_wandb(config, training_args=config)
 
+    model = PSORModel(config=config)
+
+    ## load model
+    if config.ckp == -1:
+        ckp_path = config.sft_output_dir
+    else:
+        ckp_path = os.path.join(config.sft_output_dir, f"checkpoint-{config.ckp}")
+
+    print(f"Loading adpater from {ckp_path}...")
+    model.load_adapter(ckp_path)
+    print(f"Loading seg_model (part) from {ckp_path}...")
+    model.seg_model.from_pretrained(ckp_path)
+    
+    model.eval()
+    model.requires_grad_(False)
+    processor = model.get_processor()
+    
     _, test_dataset, _ = load_psor_dataset(config=config)
 
     test_dataloader = DataLoader(
@@ -125,12 +132,10 @@ def test(config):
         drop_last=False,
     )
 
-    gen_eval = GenerationEvaluationCallback(config=config)
+    gen_eval = PSORCallback(config=config)
 
     log_metrics = gen_eval.evaluate(model, processor, test_dataloader)
-
-    with open(os.path.join(eval_dir, "log_metrics.json"), "w") as f:
-        json.dump(log_metrics, f)
+    # eval_dir = os.path.join(config.output_dir, "evaluation", config.run_id)
 
 if __name__ == "__main__":
     config = PSORConfig.from_args_and_file()
