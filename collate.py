@@ -1,10 +1,5 @@
 from transformers import Qwen2VLProcessor
 from qwen_vl_utils import process_vision_info
-import torch
-
-def resize_tensor(t, h, w):
-    t = torch.nn.functional.interpolate(t[None, None, :, :], size=(h, w), mode="bilinear")
-    return t[0, 0, :, :]
 
 def collate_fn(samples, processor):
     # chat_contents = [sample["chat_content"] for sample in samples]
@@ -46,10 +41,7 @@ def collate_fn(samples, processor):
     batch["names"] = [sample["name"] for sample in samples]
     batch["widths"] = [sample["width"] for sample in samples]
     batch["heights"] = [sample["height"] for sample in samples]
-    batch["masks"] = [
-        torch.stack([resize_tensor(torch.tensor(m), h=480, w=640) for m in sample["masks"]], dim=0)
-        for sample in samples
-    ]
+    batch["masks"] = [sample["masks"] for sample in samples]
     batch["images"] = [sample["image"] for sample in samples]
 
     return batch

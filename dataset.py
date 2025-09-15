@@ -15,21 +15,29 @@ def format_data(sample, n_mask_tokens=2):
     (2) Rank them from most to least salient, where Rank 1 = the object that attracts attention first, Rank 2 = next, and so on.
     (3) Provide a bounding box and mask tokens for each ranked object.
     Output Format:
-    ```START
-    <|object_ref_start|>rank,category,<|box_start|>x1,y1,x2,y2<|box_end|>,{mask_placeholder}<|object_ref_end|>
-    <|object_ref_start|>rank,category,<|box_start|>x1,y1,x2,y2<|box_end|>,{mask_placeholder}<|object_ref_end|>
+    ```
+    {rank}|{category}|<|box_start|>{x1},{y1},{x2},{y2}<|box_end|>|{mask_placeholder}
+    {rank}|{category}|<|box_start|>{x1},{y1},{x2},{y2}<|box_end|>|{mask_placeholder}
     ...
-    ```END
+    ```
     Guidelines:
     (1) Most images will contain only a few salient objects - limit output to at most 10.
     (2) All bounding boxes must be in absolute pixel coordinates, where:
         a. (x1:int, y1:int) = top-left corner
         b. (x2:int, y2:int) = bottom-right corner
-    """.format(mask_placeholder=mask_placeholder)
+    """.format(
+        rank="rank",
+        category="category",
+        x1="x1",
+        y1="y1",
+        x2="x2",
+        y2="y2",
+        mask_placeholder=mask_placeholder
+    )
 
     text_label = ""
     for obj in sample["label"]:
-        text_label += "<|object_ref_start|>{rank},{category},<|box_start|>{x1},{y1},{x2},{y2}<|box_end|>,{mask_placeholder}<|object_ref_end|>".format(
+        text_label += "{rank}|{category}|<|box_start|>{x1},{y1},{x2},{y2}<|box_end|>|{mask_placeholder}".format(
             rank=obj["rank"],
             category=obj["category"],
             x1=obj["bbox"]["x1"],
@@ -39,7 +47,7 @@ def format_data(sample, n_mask_tokens=2):
             mask_placeholder=mask_placeholder
         )
         text_label += "\n"
-    text_label = "<|prediction_start|>" + text_label[0:-1] + "<|prediction_end|>"
+    text_label = "<|prediction_start|>\n" + text_label + "<|prediction_end|>"
 
     return [
         {
@@ -242,6 +250,6 @@ if __name__ == "__main__":
     print("Example train sample:", train_dataset[0])
     # print("Example eval sample:", eval_dataset[0])    # Print the first evaluation sample
 
-    handler = EvalImageHandler(config=config)
-    sample = handler.handle(image_path="assets/dataset/images/000000386912.jpg")
-    print(sample)
+    # handler = EvalImageHandler(config=config)
+    # sample = handler.handle(image_path="assets/dataset/images/000000386912.jpg")
+    # print(sample)

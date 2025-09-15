@@ -19,10 +19,9 @@ class Generation:
 
         for s in text.split("\n"):
             try:
-                rank = int(s.split("]")[0].split("[")[-1])
-                category = str(s.split("]")[1].split("[")[-1]).strip()
-                bbox = tuple(
-                    map(int, s.split("(")[-1].split(")")[0].split(",")))
+                rank = int(s.split("|")[0])
+                category = str(s.split("|")[1]).strip()
+                bbox = tuple(map(int, s.split("|")[2].split(",")))
                 record = {
                     "name": name,
                     "width": width,
@@ -37,10 +36,11 @@ class Generation:
                     }),
                     "mask": None,
                 }
-                if (masks is not None) and rank >= 0 and rank <= len(masks):
+                if masks and rank >= 0 and rank <= len(masks):
                     record["mask"] = masks[rank-1, 0].numpy()
                 out.append(record)
             except:
+                print("New Line#", s, "#")
                 continue
         out.sort(key=lambda x: x["rank"])
         return out

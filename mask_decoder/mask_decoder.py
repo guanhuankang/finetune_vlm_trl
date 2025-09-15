@@ -59,7 +59,7 @@ class MaskDecoder(nn.Module):
             nn.Conv2d(width, width, 3, padding=1),
         )
 
-        self.mask_conv = nn.Conv2d(config.n_mask_tokens + 2, 1, 3, padding=1)
+        self.mask_conv = nn.Conv2d(config.n_mask_tokens, 1, 3, padding=1)
     
     def set_trainable(self):
         for name, param in self.named_parameters():
@@ -121,12 +121,14 @@ class MaskDecoder(nn.Module):
 
         m = einsum(x, image_features, "b k c, b c h w -> b k h w")
         m = self.mask_conv(m) # b, 1, h, w
+        m = F.interpolate(m, size=(H, W), mode="bilinear")
         
         if masks != None:
-            m = F.interpolate(m, size=masks.shape[2::], mode="bilinear")
-            loss = F.binary_cross_entropy_with_logits(m, masks.float())
+            loss = F.binary_cross_entropy_with_logits(
+                F.interpolate(m, size=masks.shape[2::], mode="bilinear"), 
+                masks.float()
+            )
         else:
-            m = F.interpolate(m, size=(H, W), mode="bilinear")
             loss = None
         
         return {

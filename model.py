@@ -88,9 +88,6 @@ class PSORModel(PreTrainedModel, GenerationMixin):
         prediction_start_id = self.processor.tokenizer.convert_tokens_to_ids("<|prediction_start|>")
         prediction_end_id = self.processor.tokenizer.convert_tokens_to_ids("<|prediction_end|>")
         mask_start_id = self.processor.tokenizer.convert_tokens_to_ids("<|mask_start|>")
-        vision_start_id = self.processor.tokenizer.convert_tokens_to_ids("<|vision_start|>")
-        vision_end_id = self.processor.tokenizer.convert_tokens_to_ids("<|vision_end|>")
-        image_pad_id = self.processor.tokenizer.convert_tokens_to_ids("<|image_pad|>")
 
         batch_size = len(kwargs["input_ids"])
         layer_idx = self.config.base_model_layer_idx_for_mask
@@ -100,34 +97,41 @@ class PSORModel(PreTrainedModel, GenerationMixin):
         for bs in range(batch_size):
             ids = kwargs["input_ids"][bs]
             attn = kwargs["attention_mask"][bs]
-            # image_tokens_indices = ((ids == image_pad_id) * attn).nonzero()[:, 0]
             pred_start_index = ((ids == prediction_start_id) * attn).nonzero()[:, 0]
             pred_end_index = ((ids == prediction_end_id) * attn).nonzero()[:, 0]
             if len(pred_start_index) > 0 and len(pred_end_index) > 0:
                 attn = torch.zeros_like(attn)
-                attn[torch.arange(pred_start_index[0],pred_end_index[0] + 1)] = 1
+                attn[torch.arange(pred_start_index[0], pred_end_index[0] + 1)] = 1
+
+                mask_indices = ((ids == mask_start_id) * attn).nonzero() + torch.arange(
+                    self.config.n_mask_tokens
+                )[None, :].to(ids.device)
+
+                mask_tokens = out.hidden_states[layer_idx][bs, mask_indices, :]  # k, n, C
+
+                if len(mask_tokens) <= 0:
+                    gen_masks = None
+                    continue
 
                 image = kwargs["images"][bs]  # PIL.Image (H, W)
                 
-                masks = kwargs["masks"][bs].unsqueeze(1) if "masks" in kwargs else None  # k,1,H,W
-
-                mask_indices = ((ids == mask_start_id) * attn).nonzero() + torch.arange(
-                    self.config.n_mask_tokens + 2
-                )[None, :].to(ids.device)
-
-                mask_tokens = out.hidden_states[layer_idx][bs, mask_indices - 1, :]  # k, n, C
-                
-                # image_features = out.hidden_states[layer_idx][bs, image_tokens_indices - 1, :]
-                # image_features = rearrange(image_features, "(k h w) c -> k c h w", \
-                #                          k=1, h=kwargs["image_grid_thw"][0, 1]//2)
+                if "masks" in kwargs:
+                    ## k, 1, H, W
+                    masks = torch.stack([torch.tensor(m) for m in kwargs["masks"][bs]], dim=0).unsqueeze(1).to(mask_tokens)
+                else:
+                    masks = None
 
                 mask_branch_out = self.seg_model(mask_tokens, None, masks, image)
+
                 if mask_branch_out["loss"] != None:
                     out.loss += mask_branch_out["loss"] / batch_size * 1.0
+
                 gen_masks = mask_branch_out["masks"]
             else:
                 gen_masks = None
+
             out.mask_predictions.append(gen_masks)
+
         return out
 
     def generate(self, *args, **kwargs):
