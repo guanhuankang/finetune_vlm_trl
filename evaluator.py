@@ -83,8 +83,8 @@ class PSORGraph:
         if iou_scores[matched_index] >= self.matched_threshold:
             anno_idx = children_data[matched_index]["anno_idx"]
 
-            pred_mask = obj["mask"]
             gt_mask = coco_mask_decode(self.annos[anno_idx].mask)
+            pred_mask = obj["mask"] if obj["mask"] else np.zeros_like(gt_mask)
             m_mae = np.mean(np.abs(gt_mask - pred_mask))
             m_iou = mask_iou(pred_mask > 0.5, gt_mask > 0.5)
             

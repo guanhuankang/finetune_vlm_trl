@@ -27,6 +27,9 @@ class PSORCallback(TrainerCallback):
                 outputs = self.generation.generate(
                     model=model, processor=processor, batch=batch
                 )
+
+                print(outputs)
+
                 for name, width, height, out in zip(
                     batch.names, batch.widths, batch.heights, outputs
                 ):
@@ -75,6 +78,8 @@ class PSORCallback(TrainerCallback):
             return log_metrics
 
     def on_evaluate(self, args, state, control, **kwargs):
+        self.on_save(args, state, control, **kwargs)
+
         if not state.is_local_process_zero:
             return control
         else:
