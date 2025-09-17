@@ -53,9 +53,8 @@ class PSORCallback(TrainerCallback):
                                                         [
                                                             f"{k}:{x[k]}"
                                                             for k in ["rank", "category", "bbox"]
-                                                            + [
-                                                                f"mask:{x['mask'] is None}"
-                                                            ]
+                                                        ] + [
+                                                            f"mask:{x['mask'] is None}"
                                                         ]
                                                     )
                                                     for x in out["results"]
@@ -78,7 +77,6 @@ class PSORCallback(TrainerCallback):
             return log_metrics
 
     def on_evaluate(self, args, state, control, **kwargs):
-        self.on_save(args, state, control, **kwargs)
 
         if not state.is_local_process_zero:
             return control
@@ -87,7 +85,12 @@ class PSORCallback(TrainerCallback):
             processor = kwargs["processing_class"]
             eval_dataloader = kwargs["eval_dataloader"]
 
-            self.evaluate(model, processor, eval_dataloader)
+            try:
+                self.evaluate(model, processor, eval_dataloader)
+            except Exception as e:
+                print(f"Evaluation process error: {e}")
+                import traceback
+                traceback.print_exc()
 
             return control
 
