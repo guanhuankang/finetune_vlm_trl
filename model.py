@@ -75,7 +75,7 @@ class PSORModel(PreTrainedModel, GenerationMixin):
 
             records = self.ids_to_records(ids=ids, width=64, height=64)
             
-            if (not records["end_of_detection"]) or len(records) <= 0:
+            if (not records["end_of_detection"]) or len(records["records"]) <= 0:
                 out.mask_predictions.append(None)
                 continue
 
