@@ -2,6 +2,7 @@ from transformers import TrainerCallback
 import wandb
 from tqdm import tqdm
 import os
+import torch
 
 from evaluator import Evaluator
 from generation import Generation
@@ -15,10 +16,14 @@ class PSORCallback(TrainerCallback):
         self.generation = Generation(config=config)
         self.config = config
 
-    def evaluate(self, model, processor, eval_dataloader):
-        input_width = self.config.input_width
-        input_height = self.config.input_height
-        n_image_visualization = self.config.n_image_visualization
+        self.data = []
+        self.round = 0
+
+    def evaluate(self, model, processor, eval_dataloader, state=None):
+        self.round += 1
+        global_step = state.global_step if state is not None else self.round
+
+        save_results = []
 
         with tqdm(total=len(eval_dataloader), desc="Evaluation") as bar:
             self.evaluator.init()
@@ -28,53 +33,32 @@ class PSORCallback(TrainerCallback):
                     model=model, processor=processor, batch=batch
                 )
 
-                print(outputs)
-
-                for name, width, height, out in zip(
-                    batch.names, batch.widths, batch.heights, outputs
-                ):
-                    self.evaluator.update(name=name, results=out["results"])
+                for out in outputs:
+                    name = out["name"]
+                    self.evaluator.update(name=name, results=out["records"])
 
                     image = self.evaluator.get_image(name=name)
-                    image = visualize(image=image, generated_lst=out["results"])
-                    if index < n_image_visualization:
-                        wandb.log({"image_" + name: wandb.Image(image, caption=name)})
-                        wandb.log(
-                            {
-                                "table_"
-                                + name: wandb.Table(
-                                    columns=["generated_text", "results"],
-                                    data=[
-                                        [
-                                            str(out["generated_text"]),
-                                            "\n".join(
-                                                [
-                                                    ",".join(
-                                                        [
-                                                            f"{k}:{x[k]}"
-                                                            for k in ["rank", "category", "bbox"]
-                                                        ] + [
-                                                            f"mask:{x['mask'] is None}"
-                                                        ]
-                                                    )
-                                                    for x in out["results"]
-                                                ]
-                                            ),
-                                        ]
-                                    ],
-                                )
-                            }
-                        )
+                    image = visualize(image=image, generated_lst=out["records"])
+
+                    for i in range(len(out["records"])):
+                        out["records"][i]["mask"] = None
+                        out["records"][i]["bbox"] = out["records"][i]["bbox"].todict()
+                    save_results.append(out)
+
+                    if index < self.config.n_image_visualization:
+                        wandb.log({
+                            f"Table-{global_step}": wandb.Table(columns=["image", "data"], data=[
+                                [wandb.Image(image, caption=name), str(out)],
+                            ])
+                        })
 
                 bar.update()
 
             log_metrics = self.evaluator.average()
-
-            wandb.log(log_metrics)
-
             print(log_metrics)
-
-            return log_metrics
+            wandb.log(log_metrics)
+            
+            self.data = save_results
 
     def on_evaluate(self, args, state, control, **kwargs):
 
@@ -86,7 +70,7 @@ class PSORCallback(TrainerCallback):
             eval_dataloader = kwargs["eval_dataloader"]
 
             try:
-                self.evaluate(model, processor, eval_dataloader)
+                self.evaluate(model, processor, eval_dataloader, state=state)
             except Exception as e:
                 print(f"Evaluation process error: {e}")
                 import traceback
@@ -96,5 +80,9 @@ class PSORCallback(TrainerCallback):
 
     def on_save(self, args, state, control, **kwargs):
         model = kwargs["model"]
+        
         model.seg_model.save_pretrained(os.path.join(self.config.sft_output_dir, f"checkpoint-{state.global_step}"))
+
+        torch.save(self.data, os.path.join(self.config.sft_output_dir, f"checkpoint-{state.global_step}/evaluation.results.pth"))
+
         return super().on_save(args, state, control, **kwargs)

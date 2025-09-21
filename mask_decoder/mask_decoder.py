@@ -12,6 +12,7 @@ from mask_decoder.segment_anything import (
     build_sam_vit_b,
 )
 from mask_decoder.transformer import Transformer
+from mask_decoder.unet import UNet
 
 class MaskDecoder(nn.Module):
     def __init__(
@@ -26,40 +27,15 @@ class MaskDecoder(nn.Module):
             checkpoint=config.sam_checkpoint
         ).image_encoder
 
+        width = 256
+
+        self.unet = UNet(width=width)
+
+        self.mask_weight = nn.Parameter(torch.randn((1, width)), requires_grad=True)
+
         self.register_buffer("pixel_mean", torch.Tensor(pixel_mean).view(-1, 1, 1), False)
         self.register_buffer("pixel_std", torch.Tensor(pixel_std).view(-1, 1, 1), False)
 
-        width = config.mask_decoder_dim
-
-        self.proj1 = nn.Sequential(
-            nn.Linear(256, width),
-            nn.ReLU(),
-            nn.Linear(width, width)
-        )
-
-        self.proj2 = nn.Sequential(
-            nn.Linear(config.mask_decoder_proj2_dim, width),
-            nn.ReLU(),
-            nn.Linear(width, width)
-        )
-
-        self.decoder = Transformer(
-            n_blocks=config.mask_decoder_n_blocks,
-            dim=width,
-            num_heads=8,
-        )
-
-        self.conv = nn.Sequential(
-            nn.Conv2d(width, width, 3, padding=1),
-            nn.BatchNorm2d(width),
-            nn.ReLU(),
-            nn.Conv2d(width, width, 3, padding=1),
-            nn.BatchNorm2d(width),
-            nn.ReLU(),
-            nn.Conv2d(width, width, 3, padding=1),
-        )
-
-        self.mask_conv = nn.Conv2d(config.n_mask_tokens, 1, 3, padding=1)
     
     def set_trainable(self):
         for name, param in self.named_parameters():
@@ -89,39 +65,34 @@ class MaskDecoder(nn.Module):
     def device(self):
         return self.pixel_mean.device
 
-    def forward(self, x, image_features=None, masks=None, image=None):
+    def bbox_to_mask(self, bbox, H=64, W=64):
+        x1, y1, x2, y2 = bbox.toint()
+        m = torch.zeros((H, W), device=self.device)
+        m[y1:y2+1, x1:x2+1] = 1.0
+        return m[None, None, :, :] * self.mask_weight[:, :, None, None]
+    
+    def forward(self, records, image, masks=None):
         """
-        x: B, n, C (mask tokens)
-        image_features: 1, c, h, w
-        masks: [optional] B, 1, H, W for calc loss
-        image: [optional] PIL.Image
+        records: list of dict K*
+            {
+                "rank": int, // 1, 2, 3, ...
+                "category": str,
+                "bbox": BBox,
+            }
+        image: PIL image
+        masks: None or Tensor(K*, 1, H, W)
 
-        output mask: B, 1, H, W
+        output mask: K*, 1, H, W
         """
         image_features = self.image_encoder(self.preprocess(image))  # 1, 256, 64, 64
-        image_features = image_features.expand(len(x), -1, -1, -1)   # B, 256, 64, 64
+        image_features = image_features.expand(len(records), -1, -1, -1)   # B, 256, 64, 64
+        _, _, H, W = image_features.shape
 
-        out = self.decoder(
-            torch.cat(
-                [
-                    self.proj1(rearrange(image_features, "b c h w -> b (h w) c")),
-                    self.proj2(x),
-                ],
-                dim=1,
-            )
-        )
-
-        W, H = image.size if not isinstance(image, type(None)) else (640, 480)
-        h, w = image_features.shape[-2::]
-
-        x = out[:, int(h*w)::, :] ## B, n, C
+        bbox_promt = torch.cat([self.bbox_to_mask(r["bbox"], H=H, W=W) for r in records], dim=0)
+        image_features = image_features + bbox_promt
         
-        image_features = rearrange(out[:, 0 : int(h * w), :], "b (h w) c -> b c h w", h=h, w=w)
-        image_features = nn.Sequential(nn.Upsample(size=(256, 256), mode="bilinear"), self.conv)(image_features)
-
-        m = einsum(x, image_features, "b k c, b c h w -> b k h w")
-        m = self.mask_conv(m) # b, 1, h, w
-        m = F.interpolate(m, size=(H, W), mode="bilinear")
+        m = self.unet(image_features)
+        m = F.interpolate(m, size=tuple(reversed(image.size)), mode="bilinear")
         
         if masks != None:
             loss = F.binary_cross_entropy_with_logits(
@@ -153,19 +124,25 @@ class MaskDecoder(nn.Module):
 
 if __name__ == "__main__":
     from config import PSORConfig
+    from utils import BBox
 
     config = PSORConfig()
 
     md = MaskDecoder(config).cuda()
     print(md)
-    # for name, param in md.named_parameters():
-    #     print(name)
-
+    
+    B = 3
     image = Image.fromarray((np.random.random((480, 640, 3)) * 255).astype(np.uint8))
-    x = torch.rand(3, 6, 2048).cuda()
-    f = torch.rand(1, 2048, 74, 74).cuda()
+    masks=torch.rand(B, 1, 480, 640).gt(0.5).float().cuda()
+    records = [{
+        "bbox": BBox({
+            "x1": 10,
+            "y1": 10,
+            "x2": 23,
+            "y2": 63
+        })
+    }]*B
 
-    y = md(x, f, masks=torch.rand(3, 1, 480, 640).gt(0.5).float().cuda(), image=image)
+    y = md(records, image, masks=masks)
 
-    # print(y)
-    print(y["masks"].shape)
+    print(y["masks"].shape, y["loss"])

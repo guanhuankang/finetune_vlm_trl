@@ -31,12 +31,6 @@ class PSORConfig(PretrainedConfig):
         ckp: int = -1,
         evaluation: bool = False,
         base_model_id: str = "assets/Qwen/Qwen2.5-VL-3B-Instruct",
-        base_model_layer_idx_for_mask: int = -3,
-        n_mask_tokens: int = 4,
-        sam_checkpoint: str = "assets/sam_vit_h_4b8939.pth",
-        mask_decoder_n_blocks: int = 0,
-        mask_decoder_dim: int = 256,
-        mask_decoder_proj2_dim: int = 2048,
         num_train_epochs: int = 2,
         num_gpus: int = 1,
         per_device_train_batch_size: int = 4,
@@ -56,6 +50,8 @@ class PSORConfig(PretrainedConfig):
         test_split: str = "0,5000",
         train_split: str = "5000,10000",
         n_image_visualization: int = 10,
+
+        sam_checkpoint: str = "assets/sam_vit_h_4b8939.pth",
         **kwargs,
     ):
         init_args = [(k, v) for k, v in locals().items() if k not in ('self', 'kwargs', '__class__')]

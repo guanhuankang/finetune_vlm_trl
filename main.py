@@ -145,3 +145,5 @@ if __name__ == "__main__":
         train(config=config)
     else:
         test(config=config)
+
+    print("done")

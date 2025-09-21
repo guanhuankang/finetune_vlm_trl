@@ -7,47 +7,36 @@ import numpy as np
 from pycocotools.mask import decode as coco_mask_decode
 
 
-def format_data(sample, n_mask_tokens=2):
-    mask_placeholder = f"<|mask_start|>{''.join(f'<|mask_{i}|>' for i in range(n_mask_tokens))}<|mask_end|>"
-
+def format_data(sample):
     system_message = """You are a Vision-Language Model (VLM) specialized in Salient Object Ranking (SOR)—the task of modeling how human visual attention dynamically shifts among objects within a scene. Given an input image from the user, your goal is to: 
     (1) Detect visually salient objects - those most likely to capture human attention first.
     (2) Rank them from most to least salient, where Rank 1 = the object that attracts attention first, Rank 2 = next, and so on.
     (3) Provide a bounding box and mask tokens for each ranked object.
     Output Format:
-    ```
-    {rank}|{category}|<|box_start|>{x1},{y1},{x2},{y2}<|box_end|>|{mask_placeholder}
-    {rank}|{category}|<|box_start|>{x1},{y1},{x2},{y2}<|box_end|>|{mask_placeholder}
+    |1|{category}|{x1},{y1},{x2},{y2}|
+    |2|{category}|{x1},{y1},{x2},{y2}|
     ...
-    ```
+    |N|{category}|{x1},{y1},{x2},{y2}|
+    |END|
     Guidelines:
-    (1) Most images will contain only a few salient objects - limit output to at most 10.
+    (1) Most images will contain only a few salient objects - limit output to at most N<=10 objects.
     (2) All bounding boxes must be in absolute pixel coordinates, where:
         a. (x1:int, y1:int) = top-left corner
         b. (x2:int, y2:int) = bottom-right corner
-    """.format(
-        rank="rank",
-        category="category",
-        x1="x1",
-        y1="y1",
-        x2="x2",
-        y2="y2",
-        mask_placeholder=mask_placeholder
-    )
+    (3) The final line of output must be |END| to signal the end of detection.
+    """
 
     text_label = ""
     for obj in sample["label"]:
-        text_label += "{rank}|{category}|<|box_start|>{x1},{y1},{x2},{y2}<|box_end|>|{mask_placeholder}".format(
+        text_label += "|{rank}|{category}|{x1},{y1},{x2},{y2}|\n".format(
             rank=obj["rank"],
             category=obj["category"],
             x1=obj["bbox"]["x1"],
             y1=obj["bbox"]["y1"],
             x2=obj["bbox"]["x2"],
             y2=obj["bbox"]["y2"],
-            mask_placeholder=mask_placeholder
         )
-        text_label += "\n"
-    text_label = "<|prediction_start|>\n" + text_label + "<|prediction_end|>"
+    text_label = text_label + "|END|"
 
     return [
         {
@@ -106,8 +95,7 @@ class PSORDataset(Dataset):
                 "label": sample["sor"],
                 "input_width": input_width,
                 "input_height": input_height,
-            },
-            n_mask_tokens=self.config.n_mask_tokens
+            }
         )
 
         if self.split != "train":
@@ -247,7 +235,7 @@ if __name__ == "__main__":
 
     # Example of accessing a sample
     # Print the first training sample
-    print("Example train sample:", train_dataset[0])
+    print("Example train sample:", train_dataset[0]["chat_content"][-1]["content"][0]["text"])
     # print("Example eval sample:", eval_dataset[0])    # Print the first evaluation sample
 
     # handler = EvalImageHandler(config=config)

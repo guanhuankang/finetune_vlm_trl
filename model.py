@@ -10,6 +10,7 @@ from einops import rearrange
 from config import MODEL_TYPE, PSORConfig
 from download_checkpoint import download_checkpoint
 from mask_decoder.mask_decoder import MaskDecoder
+from utils import BBox
 
 class PSORModel(PreTrainedModel, GenerationMixin):
     config_class = PSORConfig
@@ -25,29 +26,7 @@ class PSORModel(PreTrainedModel, GenerationMixin):
 
         self.model = self._load_base_model(config)
 
-        self._add_special_tokens()
-
         self.seg_model = MaskDecoder(config)
-
-    def _add_special_tokens(self):
-        tokenizer = self.processor.tokenizer
-        special_tokens = [
-            "<|mask_start|>",
-            "<|mask_end|>",
-            "<|prediction_start|>",
-            "<|prediction_end|>",
-        ] + [f"<|mask_{i}|>" for i in range(32)]
-        assert tokenizer.add_special_tokens(
-            {"additional_special_tokens": special_tokens}
-        ) == len(special_tokens)
-        self.model.resize_token_embeddings(len(tokenizer))
-        self.model.config.vocab_size = len(tokenizer)
-
-        print(f"Tokenizer vocab size: {len(tokenizer)}")
-        print(f"Model config vocab size: {self.model.config.vocab_size}")
-        print(
-            f"Embedding weight shape: {self.model.get_input_embeddings().weight.shape}"
-        )
 
     def _load_base_model(self, config):
         base_kwargs = {
@@ -65,14 +44,14 @@ class PSORModel(PreTrainedModel, GenerationMixin):
         else:
             raise ValueError(f"Unsupported model ID: {config.base_model_id}")
 
-        peft_config = LoraConfig(
-            lora_alpha=16,
-            lora_dropout=0.05,
-            r=8,
-            bias="none",
-            target_modules=["q_proj", "v_proj"],
-            task_type="CAUSAL_LM",
-        )
+        # peft_config = LoraConfig(
+        #     lora_alpha=16,
+        #     lora_dropout=0.05,
+        #     r=8,
+        #     bias="none",
+        #     target_modules=["q_proj", "v_proj"],
+        #     task_type="CAUSAL_LM",
+        # )
         # model = get_peft_model(model=model, peft_config=peft_config)
     
         return model
@@ -84,65 +63,42 @@ class PSORModel(PreTrainedModel, GenerationMixin):
         kwargs["output_hidden_states"] = True
         out = self.model.forward(*args, **kwargs)
 
-        # Mask Branch
-        prediction_start_id = self.processor.tokenizer.convert_tokens_to_ids("<|prediction_start|>")
-        prediction_end_id = self.processor.tokenizer.convert_tokens_to_ids("<|prediction_end|>")
-        mask_start_id = self.processor.tokenizer.convert_tokens_to_ids("<|mask_start|>")
-
-        batch_size = len(kwargs["input_ids"])
-        layer_idx = self.config.base_model_layer_idx_for_mask
-        
+        ## Mask Branch
         out.mask_predictions = []
-
-        for bs in range(batch_size):
-            ids = kwargs["input_ids"][bs]
-            attn = kwargs["attention_mask"][bs]
-            pred_start_index = ((ids == prediction_start_id) * attn).nonzero()[:, 0]
-            pred_end_index = ((ids == prediction_end_id) * attn).nonzero()[:, 0]
-            if len(pred_start_index) > 0 and len(pred_end_index) > 0:
-                attn = torch.zeros_like(attn)
-                attn[torch.arange(pred_start_index[0], pred_end_index[0] + 1)] = 1
-
-                mask_indices = ((ids == mask_start_id) * attn).nonzero() + torch.arange(
-                    self.config.n_mask_tokens
-                )[None, :].to(ids.device)
-
-                mask_tokens = out.hidden_states[layer_idx][bs, mask_indices, :]  # k, n, C
-
-                if len(mask_tokens) <= 0:
-                    gen_masks = None
-                    continue
-
-                image = kwargs["images"][bs]  # PIL.Image (H, W)
-                
-                if "masks" in kwargs:
-                    ## k, 1, H, W
-                    masks = torch.stack([torch.tensor(m) for m in kwargs["masks"][bs]], dim=0).unsqueeze(1).to(mask_tokens)
-                else:
-                    masks = None
-
-                mask_branch_out = self.seg_model(mask_tokens, None, masks, image)
-
-                if mask_branch_out["loss"] != None:
-                    out.loss += mask_branch_out["loss"] / batch_size * 1.0
-
-                gen_masks = mask_branch_out["masks"]
+        input_ids = kwargs["input_ids"]
+        for bs, ids in enumerate(input_ids):
+            if ("masks" in kwargs) and (len(kwargs["masks"][bs]) > 0):
+                ## k, 1, H, W
+                masks = torch.stack([torch.tensor(m) for m in kwargs["masks"][bs]], dim=0).unsqueeze(1).to(input_ids)
             else:
-                gen_masks = None
+                masks = None
 
-            out.mask_predictions.append(gen_masks)
+            records = self.ids_to_records(ids=ids, width=64, height=64)
+            
+            if (not records["end_of_detection"]) or len(records) <= 0:
+                out.mask_predictions.append(None)
+                continue
+
+            seg_out = self.seg_model(records["records"], image= kwargs["images"][bs], masks=masks)
+
+            out.mask_predictions.append(seg_out["masks"])
+            if seg_out["loss"] != None:
+                out.loss += seg_out["loss"] / len(input_ids) * 1.0
 
         return out
 
     def generate(self, *args, **kwargs):
-        kwargs.setdefault("output_hidden_states", True)
+        kwargs.setdefault("output_hidden_states", False)
         kwargs.setdefault("return_dict_in_generate", True)
+        images = kwargs["images"]
+        kwargs.pop("images")
 
         gen_out = self.model.generate(*args, **kwargs)
 
         inputs = kwargs | {
             "input_ids": gen_out.sequences,
             "attention_mask": (gen_out.sequences != -1).long(),
+            "images": images
         }
 
         with torch.no_grad():
@@ -151,9 +107,56 @@ class PSORModel(PreTrainedModel, GenerationMixin):
         gen_out.mask_predictions = out.mask_predictions
         return gen_out
 
+    def ids_to_records(self, ids, width=None, height=None):
+        vision_end_id = self.processor.tokenizer.convert_tokens_to_ids("<|vision_end|>")
+        prediction_start_idx = ((ids == vision_end_id).nonzero()[-1::, 0].tolist() + [0])[0]
+
+        text = self.processor.decode(
+            ids[prediction_start_idx::],
+            skip_special_tokens=True,
+            clean_up_tokenization_spaces=False,
+        )
+
+        records = []
+        end_of_detection = False
+        input_width = self.config.input_width
+        input_height = self.config.input_height
+        width = width or input_width
+        height = height or input_height
+        clamp = lambda x: min(1.0, max(0.0, x))
+
+        for s in text.split("\n"):
+            end_of_detection = end_of_detection or ("|END|" in s)
+            try:
+                "|{rank}|{category}|{x1},{y1},{x2},{y2}|"
+                rank = int(s.split("|")[1])
+                category = str(s.split("|")[2]).strip()
+                bbox = tuple(map(int, s.split("|")[3].split(",")))
+                records.append({
+                    "rank": rank,
+                    "category": category,
+                    "bbox": BBox({
+                        "x1": clamp(bbox[0] / input_width) * width,
+                        "y1": clamp(bbox[1] / input_height) * height,
+                        "x2": clamp(bbox[2] / input_width) * width,
+                        "y2": clamp(bbox[3] / input_height) * height,
+                    }),
+                })
+            except:
+                continue
+        records.sort(key=lambda x: x["rank"])
+        return {
+            "records": records,
+            "end_of_detection": end_of_detection,
+            "output_text": self.processor.decode(
+                ids[prediction_start_idx::],
+                skip_special_tokens=False,
+                clean_up_tokenization_spaces=False,
+            ),
+        }
+    
 AutoConfig.register(MODEL_TYPE, PSORConfig)
 AutoModel.register(PSORConfig, PSORModel)
-
 
 if __name__=="__main__":
     model = PSORModel(PSORConfig())

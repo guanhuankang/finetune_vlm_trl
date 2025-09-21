@@ -84,7 +84,7 @@ class PSORGraph:
             anno_idx = children_data[matched_index]["anno_idx"]
 
             gt_mask = coco_mask_decode(self.annos[anno_idx].mask)
-            pred_mask = obj["mask"] if obj["mask"] else np.zeros_like(gt_mask)
+            pred_mask = obj["mask"] if obj["mask"] is not None else np.zeros_like(gt_mask)
             m_mae = np.mean(np.abs(gt_mask - pred_mask))
             m_iou = mask_iou(pred_mask > 0.5, gt_mask > 0.5)
             

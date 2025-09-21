@@ -1,3 +1,5 @@
+import math
+
 def GPU_monitor():
     """
     Monitor GPU usage.
@@ -49,7 +51,14 @@ class BBox:
         self.y1 = bbox["y1"]
         self.x2 = bbox["x2"]
         self.y2 = bbox["y2"]
-        
+    
+    def toint(self):
+        x1 = int(math.floor(self.x1))
+        y1 = int(math.floor(self.y1))
+        x2 = int(math.ceil(self.x2))
+        y2 = int(math.ceil(self.y2))
+        return x1, y1, x2, y2
+
     def intersection(self, bbox):
         x1 = max(self.x1, bbox.x1)
         y1 = max(self.y1, bbox.y1)
@@ -73,8 +82,11 @@ class BBox:
         self.x2 = self.x2 * r_x
         self.y2 = self.y2 * r_y
 
+    def todict(self):
+        return {"x1": self.x1, "y1": self.y1, "x2": self.x2, "y2": self.y2}
+    
     def __str__(self):
-        return str({"x1": self.x1, "y1": self.y1, "x2": self.x2, "y2": self.y2})
+        return str(self.todict())
     
     def __repr__(self):
         return self.__str__() 
