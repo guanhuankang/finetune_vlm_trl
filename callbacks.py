@@ -24,6 +24,7 @@ class PSORCallback(TrainerCallback):
         global_step = state.global_step if state is not None else self.round
 
         save_results = []
+        wandb_table_data = []
 
         with tqdm(total=len(eval_dataloader), desc="Evaluation") as bar:
             self.evaluator.init()
@@ -46,14 +47,12 @@ class PSORCallback(TrainerCallback):
                     save_results.append(out)
 
                     if index < self.config.n_image_visualization:
-                        wandb.log({
-                            f"Table-{global_step}": wandb.Table(columns=["image", "data"], data=[
-                                [wandb.Image(image, caption=name), str(out)],
-                            ])
-                        })
+                        wandb_table_data.append([wandb.Image(image, caption=name), str(out)])
 
                 bar.update()
-
+            wandb.log({
+                f"Table-{global_step}": wandb.Table(columns=["image", "data"], data=wandb_table_data)
+            })
             log_metrics = self.evaluator.average()
             print(log_metrics)
             wandb.log(log_metrics)
