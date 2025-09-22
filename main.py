@@ -109,9 +109,9 @@ def test(config):
 
     ## load model
     if config.ckp == -1:
-        ckp_path = config.sft_output_dir
+        ckp_path = config.pretrained_path
     else:
-        ckp_path = os.path.join(config.sft_output_dir, f"checkpoint-{config.ckp}")
+        ckp_path = os.path.join(config.pretrained_path, f"checkpoint-{config.ckp}")
 
     print(f"Loading adpater from {ckp_path}...")
     model.load_adapter(ckp_path)

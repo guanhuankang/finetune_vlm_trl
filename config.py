@@ -27,31 +27,34 @@ class PSORConfig(PretrainedConfig):
         self,
         project: str = "PSOR",
         run_name: str = "",
+
         output_dir: str = "output",
-        ckp: int = -1,
-        evaluation: bool = False,
         base_model_id: str = "assets/Qwen/Qwen2.5-VL-3B-Instruct",
+        dataset_path: str = "assets/dataset/psor.json",
+        categories_path: str = "assets/dataset/categories.json",
+        image_folder_path: str = "assets/dataset/images",
+        sam_checkpoint: str = "assets/sam_vit_h_4b8939.pth",
+
+        val_split: str = "0,100",
+        test_split: str = "0,5000",
+        train_split: str = "5000,10000",
         num_train_epochs: int = 2,
         num_gpus: int = 1,
         per_device_train_batch_size: int = 4,
         gradient_accumulation_steps: int = 4,
         per_device_eval_batch_size: int = 1,
+        learning_rate: float = 2e-5,
+        input_width: int = 1036,
+        input_height: int = 1036,
         logging_steps: int = 5,
         eval_steps: int = 625,
         save_steps: int = 625,
         wandb_mode: str = "offline",
-        learning_rate: float = 2e-5,
-        input_width: int = 1036,
-        input_height: int = 1036,
-        dataset_path: str = "assets/dataset/psor.json",
-        categories_path: str = "assets/dataset/categories.json",
-        image_folder_path: str = "assets/dataset/images",
-        val_split: str = "0,100",
-        test_split: str = "0,5000",
-        train_split: str = "5000,10000",
         n_image_visualization: int = 10,
 
-        sam_checkpoint: str = "assets/sam_vit_h_4b8939.pth",
+        ckp: int = -1,
+        evaluation: bool = False,
+        pretrained_path: str = "",
         **kwargs,
     ):
         init_args = [(k, v) for k, v in locals().items() if k not in ('self', 'kwargs', '__class__')]
@@ -93,6 +96,9 @@ class PSORConfig(PretrainedConfig):
                     parser.add_argument(f"--{name}", type=str)
 
         args = parser.parse_args()
+
+        if args.pretrained_path:
+            args.config_file = args.config_file or os.path.join(args.pretrained_path, "config.json")
 
         if args.config_file:
             with open(args.config_file, "r") as f:

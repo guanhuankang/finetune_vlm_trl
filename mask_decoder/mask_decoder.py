@@ -45,21 +45,15 @@ class MaskDecoder(nn.Module):
                 param.requires_grad_(True)
 
     def save_pretrained(self, output_dir):
-        """Save only trainable parameters to a file."""
         os.makedirs(output_dir, exist_ok=True)
-        trainable_state_dict = {
-            name: param.data
-            for name, param in self.named_parameters()
-            if param.requires_grad
-        }
-        torch.save(trainable_state_dict, os.path.join(output_dir, "mask_decoder.pth"))
+        torch.save(self.state_dict(), os.path.join(output_dir, "mask_decoder.pth"))
     
     def from_pretrained(self, pretrained_path):
         state_dict = torch.load(
             os.path.join(pretrained_path, "mask_decoder.pth"),
-            map_location=torch.device('cpu')  # or 'cuda' if preferred
+            map_location=torch.device('cuda')
         )
-        self.load_state_dict(state_dict, strict=False)
+        self.load_state_dict(state_dict, strict=True)
 
     @property
     def device(self):

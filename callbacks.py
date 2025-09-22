@@ -16,7 +16,6 @@ class PSORCallback(TrainerCallback):
         self.generation = Generation(config=config)
         self.config = config
 
-        self.data = []
         self.round = 0
 
     def evaluate(self, model, processor, eval_dataloader, state=None):
@@ -50,14 +49,19 @@ class PSORCallback(TrainerCallback):
                         wandb_table_data.append([wandb.Image(image, caption=name), str(out)])
 
                 bar.update()
+
             wandb.log({
                 f"Table-{global_step}": wandb.Table(columns=["image", "data"], data=wandb_table_data)
             })
+
             log_metrics = self.evaluator.average()
-            print(log_metrics)
             wandb.log(log_metrics)
+            print(log_metrics)
             
-            self.data = save_results
+            torch.save(
+                self.data, 
+                os.path.join(self.config.sft_output_dir, f"checkpoint-{state.global_step}/evaluation.results.pth")
+            )
 
     def on_evaluate(self, args, state, control, **kwargs):
 
@@ -81,7 +85,5 @@ class PSORCallback(TrainerCallback):
         model = kwargs["model"]
         
         model.seg_model.save_pretrained(os.path.join(self.config.sft_output_dir, f"checkpoint-{state.global_step}"))
-
-        torch.save(self.data, os.path.join(self.config.sft_output_dir, f"checkpoint-{state.global_step}/evaluation.results.pth"))
 
         return super().on_save(args, state, control, **kwargs)
