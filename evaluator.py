@@ -83,10 +83,14 @@ class PSORGraph:
         if iou_scores[matched_index] >= self.matched_threshold:
             anno_idx = children_data[matched_index]["anno_idx"]
 
-            gt_mask = coco_mask_decode(self.annos[anno_idx].mask)
-            pred_mask = obj["mask"] if obj["mask"] is not None else np.zeros_like(gt_mask)
-            m_mae = np.mean(np.abs(gt_mask - pred_mask))
-            m_iou = mask_iou(pred_mask > 0.5, gt_mask > 0.5)
+            if anno_idx=="end":
+                m_mae = 0.0
+                m_iou = 1.0
+            else:
+                gt_mask = coco_mask_decode(self.annos[anno_idx].mask)
+                pred_mask = obj["mask"] if obj["mask"] is not None else np.zeros_like(gt_mask)
+                m_mae = np.mean(np.abs(gt_mask - pred_mask))
+                m_iou = mask_iou(pred_mask > 0.5, gt_mask > 0.5)
             
             return {
                 "anno_idx": anno_idx,
@@ -156,42 +160,33 @@ class Evaluator:
 
     def calc(self, generated_lst, graph):
         state = []
-        scores = {
-            "top1_advantage": 0.0,
-            "top1_advantage_iou": 0.0,
-            "advantage": 0.0,
-            "advantage_iou": 0.0,
-        }
-
-        sum_action_rewards = 0.0
-        sum_iou_aware_action_rewards = 0.0
+        action_rewards = []
+        bbox_iou_list = []
         mask_iou_list = []
         mask_mae_list = []
 
         for obj in generated_lst:
             y = graph.match(obj, state)
+            matched_idx = y["anno_idx"]
 
-            if obj["rank"] == 1:
-                scores["top1_advantage"] = y["action_reward"] / y["max_action_reward"]
-                scores["top1_advantage_iou"] = y["iou"]
-
-            sum_action_rewards += y["action_reward"]
-            sum_iou_aware_action_rewards += y["action_reward"] * y["iou"]
-            mask_iou_list.append(y["mask_iou"])
-            mask_mae_list.append(y["mask_mae"])
-            
-            state.append(y["anno_idx"])
-            if y["anno_idx"] == "end" or y["anno_idx"] == None:  # early stop
+            state.append(matched_idx)
+            action_rewards.append(y["action_reward"])
+            if isinstance(matched_idx, int):
+                bbox_iou_list.append(y["iou"])
+                mask_iou_list.append(y["mask_iou"])
+                mask_mae_list.append(y["mask_mae"])
+            else:
+                ## early stop, anno_idx==None or end
                 break
-
-        scores["advantage"] = sum_action_rewards / graph.max_reward
-        scores["advantage_iou"] = sum_iou_aware_action_rewards / (
-            sum_action_rewards + 1e-6
-        )
-        scores["mask_iou"] = float(np.mean(mask_iou_list))
-        scores["mask_mae"] = float(np.mean(mask_mae_list))
         
-        return scores
+        safe_mean = lambda x, default=-1.0: float(np.mean(x)) if len(x)>0 else default
+        return {
+            "reward": sum(action_rewards + [0.0]),
+            "nomalized_reward": sum(action_rewards + [0.0]) / graph.max_reward,
+            "bbox_iou": safe_mean(bbox_iou_list),
+            "mask_iou": safe_mean(mask_iou_list),
+            "mask_mae": safe_mean(mask_mae_list),
+        }
 
     def update(
         self,

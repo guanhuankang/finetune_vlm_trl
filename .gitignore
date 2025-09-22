@@ -13,3 +13,4 @@ wandb/
 output/
 debug/
 runs/
+log/
