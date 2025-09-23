@@ -58,10 +58,9 @@ class PSORCallback(TrainerCallback):
             wandb.log(log_metrics)
             print(log_metrics)
             
-            torch.save(
-                self.data, 
-                os.path.join(self.config.sft_output_dir, f"checkpoint-{state.global_step}/evaluation.results.pth")
-            )
+            path = os.path.join(self.config.sft_output_dir, f"checkpoint-{state.global_step}")
+            os.makedirs(path, exist_ok=True)
+            torch.save(save_results, os.path.join(path, "evaluation.pth"))
 
     def on_evaluate(self, args, state, control, **kwargs):
 

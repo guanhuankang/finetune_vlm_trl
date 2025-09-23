@@ -29,13 +29,13 @@ class PSORConfig(PretrainedConfig):
         run_name: str = "",
 
         output_dir: str = "output",
-        base_model_id: str = "assets/Qwen/Qwen2.5-VL-3B-Instruct",
+        base_model_id: str = "assets/Qwen/Qwen2.5-VL-7B-Instruct",
         dataset_path: str = "assets/dataset/psor.json",
         categories_path: str = "assets/dataset/categories.json",
         image_folder_path: str = "assets/dataset/images",
         sam_checkpoint: str = "assets/sam_vit_h_4b8939.pth",
 
-        val_split: str = "0,100",
+        val_split: str = "0,50",
         test_split: str = "0,5000",
         train_split: str = "5000,10000",
         num_train_epochs: int = 2,
