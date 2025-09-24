@@ -28,6 +28,10 @@ class PSORModel(PreTrainedModel, GenerationMixin):
 
         self.seg_model = MaskDecoder(config)
 
+    @property
+    def device(self):
+        return self.model.device
+    
     def _load_base_model(self, config):
         base_kwargs = {
             "device_map": "auto",
@@ -59,31 +63,46 @@ class PSORModel(PreTrainedModel, GenerationMixin):
     def get_processor(self):
         return self.processor
 
-    def forward(self, *args, **kwargs):
-        kwargs["output_hidden_states"] = True
-        out = self.model.forward(*args, **kwargs)
-
+    def mask_prediction(self, input_ids, images, batch_masks):
         ## Mask Branch
-        out.mask_predictions = []
-        input_ids = kwargs["input_ids"]
-        for bs, ids in enumerate(input_ids):
-            if ("masks" in kwargs) and (len(kwargs["masks"][bs]) > 0):
+        mask_predictions = []
+        loss = 0.0
+        for ids, image, masks in zip(input_ids, images, batch_masks):
+            if len(masks) > 0:
                 ## k, 1, H, W
-                masks = torch.stack([torch.tensor(m) for m in kwargs["masks"][bs]], dim=0).unsqueeze(1).to(input_ids)
+                masks = torch.stack([torch.tensor(m) for m in masks], dim=0).unsqueeze(1).to(input_ids)
             else:
                 masks = None
 
             records = self.ids_to_records(ids=ids, width=64, height=64)
             
-            if (not records["end_of_detection"]) or len(records["records"]) <= 0:
-                out.mask_predictions.append(None)
+            if len(records["records"]) <= 0:
+                mask_predictions.append(None)
                 continue
 
-            seg_out = self.seg_model(records["records"], image= kwargs["images"][bs], masks=masks)
+            seg_out = self.seg_model(records["records"], image=image, masks=masks)
 
-            out.mask_predictions.append(seg_out["masks"])
+            mask_predictions.append(seg_out["masks"])
             if seg_out["loss"] != None:
-                out.loss += seg_out["loss"] / len(input_ids) * 1.0
+                loss += seg_out["loss"] / len(input_ids) * 1.0
+
+        return {
+            "loss": loss,
+            "mask_predictions": mask_predictions,
+        }
+
+    def forward(self, *args, **kwargs):
+        kwargs["output_hidden_states"] = True
+        out = self.model.forward(*args, **kwargs)
+
+        mask_out = self.mask_prediction(
+            input_ids=kwargs["input_ids"],
+            images=kwargs["images"],
+            batch_masks=kwargs["masks"] if "masks" in kwargs else [[]]*len(kwargs["images"]),
+        )
+        
+        out.loss += mask_out["loss"]
+        out.mask_predictions = mask_out["mask_predictions"]
 
         return out
 
@@ -93,19 +112,17 @@ class PSORModel(PreTrainedModel, GenerationMixin):
         images = kwargs["images"]
         kwargs.pop("images")
 
-        gen_out = self.model.generate(*args, **kwargs)
-
-        inputs = kwargs | {
-            "input_ids": gen_out.sequences,
-            "attention_mask": (gen_out.sequences != -1).long(),
-            "images": images
-        }
+        out = self.model.generate(*args, **kwargs)
 
         with torch.no_grad():
-            out = self.forward(**inputs)
+            mask_out = self.mask_prediction(
+                input_ids=out.sequences,
+                images=images,
+                batch_masks=kwargs["masks"] if "masks" in kwargs else [[]]*len(images),
+            )
+        out.mask_predictions = mask_out["mask_predictions"]
 
-        gen_out.mask_predictions = out.mask_predictions
-        return gen_out
+        return out
 
     def ids_to_records(self, ids, width=None, height=None):
         vision_end_id = self.processor.tokenizer.convert_tokens_to_ids("<|vision_end|>")

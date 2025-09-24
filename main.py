@@ -17,22 +17,24 @@ def train(config: PSORConfig):
         output_dir=config.sft_output_dir,  # Directory to save the model
         num_train_epochs=config.num_train_epochs,  # Number of training epochs
         per_device_train_batch_size=config.per_device_train_batch_size,  # Batch size for training
-        per_device_eval_batch_size=config.per_device_eval_batch_size,  # Batch size for evaluation
         gradient_accumulation_steps=config.gradient_accumulation_steps,  # Steps to accumulate gradients
         gradient_checkpointing=False,  # Enable gradient checkpointing for memory efficiency
         # Optimizer and scheduler settings
         optim="adamw_torch_fused",  # Optimizer type
         learning_rate=config.learning_rate,  # Learning rate for training
         lr_scheduler_type="constant",  # Type of learning rate scheduler
-        # Logging and evaluation
         logging_steps=config.logging_steps,  # Steps interval for logging
-        eval_steps=config.eval_steps,  # Steps interval for evaluation
-        eval_strategy="steps",  # Strategy for evaluation
         save_strategy="steps",  # Strategy for saving the model
         save_steps=config.save_steps,  # Steps interval for saving
-        metric_for_best_model="eval_loss",  # Metric to evaluate the best model
-        greater_is_better=False,  # Whether higher metric values are better
-        load_best_model_at_end=True,  # Load the best model after training
+        ## Evaluation related
+        eval_strategy="no",  # Strategy for evaluation
+        load_best_model_at_end=False,  # Load the best model after training
+        # per_device_eval_batch_size=config.per_device_eval_batch_size,  # Batch size for evaluation
+        # eval_steps=config.eval_steps,  # Steps interval for evaluation
+        # eval_strategy="steps",  # Strategy for evaluation
+        # metric_for_best_model="eval_loss",  # Metric to evaluate the best model
+        # greater_is_better=False,  # Whether higher metric values are better
+
         # Mixed precision and gradient settings
         bf16=True,  # Use bfloat16 precision
         tf32=True,  # Use TensorFloat-32 precision
@@ -122,6 +124,7 @@ def test(config):
     
     model.eval()
     model.requires_grad_(False)
+    model.to("cuda")
     processor = model.get_processor()
     
     _, test_dataset, _ = load_psor_dataset(config=config)

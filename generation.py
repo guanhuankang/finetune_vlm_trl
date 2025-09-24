@@ -22,7 +22,8 @@ class Generation:
             "images": batch.images,
         }
         generated_output = model.generate(**model_inputs, max_new_tokens=1024)
-        generated_ids = trim(model_inputs['input_ids'], generated_output.sequences)
+        # generated_ids = trim(model_inputs['input_ids'], generated_output.sequences)
+        generated_ids = generated_output.sequences
         generated_masks = generated_output.mask_predictions
 
         outputs = []

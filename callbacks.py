@@ -23,8 +23,7 @@ class PSORCallback(TrainerCallback):
         global_step = state.global_step if state is not None else self.round
 
         save_results = []
-        wandb_table_data = []
-
+        
         with tqdm(total=len(eval_dataloader), desc="Evaluation") as bar:
             self.evaluator.init()
             for index, batch in enumerate(eval_dataloader):
@@ -46,19 +45,18 @@ class PSORCallback(TrainerCallback):
                     save_results.append(out)
 
                     if index < self.config.n_image_visualization:
-                        wandb_table_data.append([wandb.Image(image, caption=name), str(out)])
-
+                        wandb.log({
+                            f"Table-{name}-{global_step}": wandb.Table(
+                                columns=["image", "data"], 
+                                data=[[wandb.Image(image, caption=name), str(out)]])
+                        })
                 bar.update()
-
-            wandb.log({
-                f"Table-{global_step}": wandb.Table(columns=["image", "data"], data=wandb_table_data)
-            })
 
             log_metrics = self.evaluator.average()
             wandb.log(log_metrics)
             print(log_metrics)
             
-            path = os.path.join(self.config.sft_output_dir, f"checkpoint-{state.global_step}")
+            path = os.path.join(self.config.sft_output_dir, f"checkpoint-{global_step}")
             os.makedirs(path, exist_ok=True)
             torch.save(save_results, os.path.join(path, "evaluation.pth"))
 
