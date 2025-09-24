@@ -51,6 +51,8 @@ def train(config: PSORConfig):
         # max_seq_length=1024  # Maximum sequence length for input
 
         # --- Multi-GPU Specific ---
+        # local_rank=int(os.environ.get("LOCAL_RANK", -1)),
+        # ddp_backend="nccl",
         dataloader_num_workers=config.num_gpus,  # Optimize data loading
         ddp_find_unused_parameters=False,  # Critical for DDP
         ddp_timeout=1800,  # Prevent timeouts
