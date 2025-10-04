@@ -26,13 +26,21 @@ class UNet(nn.Module):
             nn.Conv2d(w//4, 1, 1),
         )
 
-    def forward(self, x):
-        x2 = self.down_block_1(x)
-        x3 = self.down_block_2(x2)
-        x3 = self.bottle_neck(x3)
-        x2 = self.up_block_1(x3, x2)
-        x = self.up_block_2(x2, x)
+    def forward(self, x, prompt):
+        x = self.up_block_2(
+                self.up_block_1(
+                    self.bottle_neck(
+                        self.down_block_2(
+                            self.down_block_1(x + prompt)
+                        )
+                    ),
+                    self.down_block_1(x)
+                ),
+                x
+        )
+        
         x = self.up_cls(x)
+
         return x
 
 class SpatialTransformer(nn.Module):

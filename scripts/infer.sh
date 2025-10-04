@@ -3,7 +3,9 @@
 cd /home/ghk/mnt/homespace/finetune_vlm_trl
 source .venv/bin/activate
 
-CUDA_VISIBLE_DEVICES=0 python main.py \
+CUDA_VISIBLE_DEVICES=1 python main.py \
  --evaluation \
- --pretrained_path output/20250924-223454-db7b \
- --test_split 0,2 \
+ --pretrained_path output/20250924-235834-d36f\
+ --ckp -1 \
+ --test_split 0,10 \
+ --wandb_mode online 

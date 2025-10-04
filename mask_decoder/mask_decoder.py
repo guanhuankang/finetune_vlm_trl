@@ -83,9 +83,9 @@ class MaskDecoder(nn.Module):
         _, _, H, W = image_features.shape
 
         bbox_promt = torch.cat([self.bbox_to_mask(r["bbox"], H=H, W=W) for r in records], dim=0)
-        image_features = image_features + bbox_promt
+        # image_features = image_features + bbox_promt
         
-        m = self.unet(image_features)
+        m = self.unet(image_features, bbox_promt)
         m = F.interpolate(m, size=tuple(reversed(image.size)), mode="bilinear")
         
         if masks != None:
